@@ -10,7 +10,7 @@ from utils.plot_utils import plot_loss
 from models.cond_encoder import CondEncoder
 from models.coord_encoder import CoordEncoder
 
-from data.dataset_stage1 import Stage1Dataset
+from data.stage1_dataset import Stage1Dataset
 from torch.utils.data import DataLoader
 
 
