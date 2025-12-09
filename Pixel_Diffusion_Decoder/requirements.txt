@@ -1,0 +1,19 @@
+torch==2.1.0
+torchvision==0.16.0
+
+diffusers==0.24.0
+transformers==4.35.0
+accelerate==0.23.0
+
+timm==0.9.12
+numpy==1.26.2
+matplotlib==3.8.0
+pillow==10.0.1
+tqdm==4.66.1
+scipy==1.11.2
+
+# for loading JSONL index
+jsonlines==4.0.0
+
+# optional but recommended for reproducibility
+protobuf==4.24.3
