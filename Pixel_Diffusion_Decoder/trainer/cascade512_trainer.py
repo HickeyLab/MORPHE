@@ -11,7 +11,6 @@ from accelerate import Accelerator
 from diffusers import DDPMScheduler
 from diffusers import AutoencoderKL  # if used for composition inference
 
-# Imports from your project modules
 from data.dataset_cascade import PrecomputedCascadeDataset
 from models.latent_adapter import LatentAdapter
 from models.unet512 import UNet512
