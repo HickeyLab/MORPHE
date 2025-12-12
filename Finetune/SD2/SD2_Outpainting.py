@@ -20,8 +20,8 @@ import safetensors.torch as safetorch
 # ---------- config ----------
 SD2_BASE = "Manojb/stable-diffusion-2-1-base"
 CLIP_VISION = "laion/CLIP-ViT-H-14-laion2B-s32B-b79K"
-CHECKPOINT_DIR = "drive/MyDrive/sd2"
-OUTINFER_ROOT = "drive/MyDrive/sd2outinfer"
+CHECKPOINT_DIR = "your_path"
+OUTINFER_ROOT = "your_path"
 # ----------------------------
 
 def find_checkpoint():
