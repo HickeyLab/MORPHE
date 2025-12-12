@@ -367,5 +367,7 @@ class FluxTrainerPack:
 # run
 # -------------------------
 if __name__ == "__main__":
+    from huggingface_hub import login
+    login()
     trainer = FluxTrainerPack()
     trainer.train()
