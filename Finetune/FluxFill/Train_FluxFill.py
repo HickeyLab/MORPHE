@@ -30,6 +30,7 @@ from transformers import CLIPTokenizer, T5TokenizerFast
 # -------------------------
 HF_REPO = "black-forest-labs/FLUX.1-Fill-dev"
 TRAIN_ROOT = "drive/MyDrive/Trainset"
+VAL_ROOT = "drive/MyDrive/Testset"
 MASK_ROOT = None
 
 IMG_SIZE = 512
@@ -114,7 +115,7 @@ class RandomMaskDataset(Dataset):
         mask = torch.zeros(1, H, W)
         if x2p <= x1p: x2p = min(x1p + 1, W)
         if y2p <= y1p: y2p = min(y1p + 1, H)
-        mask[:, y1p:y2p, x1p:x2p] = 1.0
+        mask[:, x1p:x2p, y1p:y2p] = 1.0
 
         masked_img = img * (1 - mask)
 
@@ -122,7 +123,6 @@ class RandomMaskDataset(Dataset):
         angle = random.choice(self.rotations)
 
         img = TF.rotate(img, angle, interpolation=TF.InterpolationMode.NEAREST)
-        mask = TF.rotate(mask, angle, interpolation=TF.InterpolationMode.NEAREST)
         masked_img = TF.rotate(masked_img, angle, interpolation=TF.InterpolationMode.NEAREST)
 
         return img, mask, masked_img
@@ -197,6 +197,12 @@ class FluxTrainerPack:
                              shuffle=True,
                              num_workers=NUM_WORKERS,
                              pin_memory=True)
+        self.val_ds = RandomMaskDataset(VAL_ROOT, size=IMG_SIZE, masks_per_image=10)
+        self.val_dl = DataLoader(self.val_ds,
+                                 batch_size=1,
+                                 shuffle=False,
+                                 num_workers=1,
+                                 pin_memory=True)
 
         # optimizer (only LoRA params)
         trainable = [p for p in self.transformer.parameters() if p.requires_grad]
@@ -238,6 +244,9 @@ class FluxTrainerPack:
                 transformer_lora_layers_to_save = get_peft_model_state_dict(transformer)
                 self.pipe.save_lora_weights(os.path.join(SAVE_DIR, f"lora"), transformer_lora_layers=transformer_lora_layers_to_save)
                 print(f"[Saved] LoRA at: {SAVE_DIR}/lora")
+            
+            val_loss = self.validate(transformer, vae, scheduler, pipe)
+            print(f"[Validation] Epoch {ep+1}: val_loss = {val_loss:.6f}")
 
     def _train_step(self, batch, transformer, vae, scheduler, pipe):
         img, mask, masked_img = batch
@@ -369,10 +378,99 @@ class FluxTrainerPack:
         self.opt.zero_grad()
 
         return loss
+    
+    @torch.no_grad()
+    def validate(self, transformer, vae, scheduler, pipe):
+        transformer.eval()
+        losses = []
+        for batch in self.val_dl:
+            loss = self._validate_step(batch, transformer, vae, scheduler, pipe)
+            losses.append(loss)
+
+        transformer.train()
+        return sum(losses) / max(1, len(losses))
+
+    @torch.no_grad()
+    def _validate_step(self, batch, transformer, vae, scheduler, pipe):
+        """
+        Same as train_step, but:
+        - no backward
+        - no optimizer
+        - returns MSE
+        """
+        img, mask, masked_img = batch
+        img = img.to(self.device, dtype=vae.dtype)
+        mask = mask.to(self.device, dtype=vae.dtype)
+        masked_img = masked_img.to(self.device, dtype=vae.dtype)
+
+        # VAE encode
+        lat = vae.encode(img).latent_dist.sample()
+        lat = (lat - vae.config.shift_factor) * vae.config.scaling_factor
+
+        masked_lat = vae.encode(masked_img).latent_dist.sample()
+        masked_lat = (masked_lat - vae.config.shift_factor) * vae.config.scaling_factor
+
+        B, C, Hlat, Wlat = lat.shape
+        vae_scale = 2 ** (len(vae.config.block_out_channels)-1)
+
+        # noise + timestep sample
+        T = getattr(scheduler.config, "num_train_timesteps", len(scheduler.timesteps))
+        t_idx = torch.randint(0, T, (B,), device=self.device)
+        timesteps = scheduler.timesteps[t_idx].to(self.device)
+        sigmas = scheduler.sigmas[t_idx].view(B,1,1,1)
+        noise = torch.randn_like(lat)
+
+        noisy_masked_lat = (1 - sigmas) * masked_lat + sigmas * noise
+
+        mask_small = F.interpolate(mask, size=(Hlat, Wlat), mode="nearest")
+        mask_bc = mask_small.expand(B, C, Hlat, Wlat)
+
+        noisy_input_lat = lat*(1-mask_bc) + noisy_masked_lat*mask_bc
+
+        packed_noisy = pipe._pack_latents(noisy_input_lat, B, C, Hlat, Wlat)
+        packed_masked = pipe._pack_latents(masked_lat, B, C, Hlat, Wlat)
+
+        # mask pack
+        mask = mask.reshape(B, 1, 512//8, 512//8)[:, 0]
+        mask = mask.view(B, Hlat, vae_scale, Wlat, vae_scale).permute(0,2,4,1,3)
+        mask = mask.reshape(B, vae_scale*vae_scale, Hlat, Wlat)
+        packed_mask = pipe._pack_latents(mask, B, vae_scale*vae_scale, Hlat, Wlat)
+
+        masked_image_latents = torch.cat((packed_masked, packed_mask), dim=2)
+        transformer_input = torch.cat((packed_noisy, masked_image_latents), dim=2)
+
+        # dummy text
+        prompt_embeds = torch.zeros(B, 1, 4096, device=self.device, dtype=transformer_input.dtype)
+        pooled_prompt_embeds = torch.zeros(B, 768, device=self.device, dtype=transformer_input.dtype)
+        text_ids = torch.zeros(1, 3, dtype=torch.long, device=self.device)
+
+        latent_ids = pipe._prepare_latent_image_ids(
+            batch_size=B, height=Hlat//2, width=Wlat//2, device=self.device, dtype=torch.long
+        )
+
+        timestep_argument = timesteps / 1000.0
+
+        pred = transformer(
+            hidden_states=transformer_input,
+            timestep=timestep_argument,
+            pooled_projections=pooled_prompt_embeds,
+            encoder_hidden_states=prompt_embeds,
+            txt_ids=text_ids,
+            img_ids=latent_ids,
+            return_dict=False,
+        )[0]
+
+        pred = FluxFillPipeline._unpack_latents(
+            pred, height=Hlat * vae_scale, width=Wlat * vae_scale, vae_scale_factor=vae_scale
+        )
+
+        target = (noise - lat).to(pred.dtype)
+        loss = F.mse_loss(pred * mask_bc, target * mask_bc).item()
+        return loss
 
 # -------------------------
 # run
 # -------------------------
 if __name__ == "__main__":
-    trainer = FluxTrainerPack()
+    trainer = FluxTrainerPack("drive/MyDrive/fluxfill_lora/lora")
     trainer.train()
