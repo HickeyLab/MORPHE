@@ -29,8 +29,8 @@ from transformers import CLIPTokenizer, T5TokenizerFast
 # CONFIG
 # -------------------------
 HF_REPO = "black-forest-labs/FLUX.1-Fill-dev"
-TRAIN_ROOT = "your_path"
-VAL_ROOT = "your_path"
+TRAIN_ROOT = "path"
+VAL_ROOT = "path"
 MASK_ROOT = None
 
 IMG_SIZE = 512
@@ -41,7 +41,7 @@ SEED = 42
 MIXED_PRECISION = "fp16"
 
 LORA_RANK = 8
-SAVE_DIR = "your_path"
+SAVE_DIR = "path"
 os.makedirs(SAVE_DIR, exist_ok=True)
 
 NUM_WORKERS = 1
@@ -278,13 +278,13 @@ class FluxTrainerPack:
         sigmas = scheduler.sigmas[t_idx].view(B,1,1,1)
         noise = torch.randn_like(lat)
 
-        noisy_masked_lat = (1 - sigmas) * masked_lat + sigmas * noise
+        noisy_lat = (1 - sigmas) * lat + sigmas * noise
 
         # mask downsampled to latents
         mask_small = F.interpolate(mask, size=(Hlat, Wlat), mode="nearest")
         mask_bc = mask_small.expand(_, C, Hlat, Wlat)
 
-        noisy_input_lat = lat*(1-mask_bc) + noisy_masked_lat*mask_bc  # [B,C,Hlat,Wlat]
+        noisy_input_lat = lat*(1-mask_bc) + noisy_lat*mask_bc  # [B,C,Hlat,Wlat]
 
         # 3) pack latents using pipeline helper (official layout)
         packed_noisy = pipe._pack_latents(
@@ -369,8 +369,7 @@ class FluxTrainerPack:
         # 7) flow-matching target
         target = (noise - lat).to(model_pred.dtype)
 
-        loss = F.mse_loss((model_pred * mask_bc).float(), (target * mask_bc).float())
-        #loss = F.mse_loss(model_pred, target)
+        loss = F.mse_loss((model_pred).float(), (target).float())
 
         # backward & step
         self.acc.backward(loss)
@@ -465,12 +464,12 @@ class FluxTrainerPack:
         )
 
         target = (noise - lat).to(pred.dtype)
-        loss = F.mse_loss(pred * mask_bc, target * mask_bc).item()
+        loss = F.mse_loss(pred, targe).item()
         return loss
 
 # -------------------------
 # run
 # -------------------------
 if __name__ == "__main__":
-    trainer = FluxTrainerPack("your_path")
+    trainer = FluxTrainerPack("path")
     trainer.train()
