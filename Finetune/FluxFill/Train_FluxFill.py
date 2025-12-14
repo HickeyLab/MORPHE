@@ -2,6 +2,7 @@ import os
 import math
 import random
 import copy
+from safetensors.torch import load_file
 import itertools
 import warnings
 from pathlib import Path
@@ -28,18 +29,18 @@ from transformers import CLIPTokenizer, T5TokenizerFast
 # CONFIG
 # -------------------------
 HF_REPO = "black-forest-labs/FLUX.1-Fill-dev"
-TRAIN_ROOT = "drive/MyDrive/Trainset"
+TRAIN_ROOT = "your_path"
 MASK_ROOT = None
 
 IMG_SIZE = 512
 BATCH_SIZE = 2
 EPOCHS = 10
-LR = 1e-6
+LR = 5e-6
 SEED = 42
 MIXED_PRECISION = "fp16"
 
 LORA_RANK = 4
-SAVE_DIR = "drive/MyDrive/fluxfill_lora"
+SAVE_DIR = "your_path"
 os.makedirs(SAVE_DIR, exist_ok=True)
 
 NUM_WORKERS = 1
@@ -126,11 +127,11 @@ class FluxTrainerPack:
             HF_REPO,
             torch_dtype=torch.float16
         )
-        
+
         self.vae = self.pipe.vae.to(self.device)
         self.transformer = self.pipe.transformer
         self.scheduler = self.pipe.scheduler
-        
+
         # Move scheduler tensors
         for k, v in list(self.scheduler.__dict__.items()):
             if isinstance(v, torch.Tensor):
@@ -157,15 +158,17 @@ class FluxTrainerPack:
 
         # Inject LoRA
         self.transformer.add_adapter(self.lora_cfg)
-
         # ---- Resume training (load existing LoRA) ----
         if resume_lora_path is not None:
             print(f"[Resume LoRA] Loading: {resume_lora_path}")
             # load LoRA safely using pipeline loader
             self.pipe.load_lora_weights(resume_lora_path)
+            #state = load_file(os.path.join(resume_lora_path, "pytorch_lora_weights.safetensors"))
+            #missing, unexpected = self.transformer.load_state_dict(state, strict=False)
             # sync the transformer with updated weights
             self.transformer = self.pipe.transformer
         else:
+
             print("[Resume LoRA] None, training from scratch.")
 
         # ---- Upcast ONLY LoRA parameters to fp32 ----
@@ -289,7 +292,9 @@ class FluxTrainerPack:
 
         # 4) prepare encoder (text) embeddings: if you have no text, use zero prompt_embeds
         # create dummy prompt_embeds: B x text_tokens x joint_dim
-
+        prompt_embeds = torch.zeros(B, self.text_tokens, 4096, device=self.device, dtype=transformer_input.dtype)
+        pooled_prompt_embeds = torch.zeros(B, self.pooled_dim, device=self.device, dtype=transformer_input.dtype)
+        text_ids = torch.zeros(self.text_tokens, 3, dtype=torch.long, device=self.device)
 
         # 5) prepare img_ids (official helper)
         latent_image_ids = pipe._prepare_latent_image_ids(
@@ -313,10 +318,6 @@ class FluxTrainerPack:
         # convert timesteps for transformer (scale)
         timestep_argument = timesteps / 1000.0
 
-        prompt_embeds = torch.zeros(B, self.text_tokens, 4096, device=self.device, dtype=transformer_input.dtype)
-        pooled_prompt_embeds = torch.zeros(B, self.pooled_dim, device=self.device, dtype=transformer_input.dtype)
-        text_ids = torch.zeros(self.text_tokens, 3, dtype=torch.long, device=self.device)
-
         # 6) forward through tr ansformer - official passes packed tokens directly
         # ensure dtype: transformer may expect float32/float16; pack value dtype will be float16 due to vae dtype
         # The transformer's forward accepts hidden_states in packed format.
@@ -333,28 +334,18 @@ class FluxTrainerPack:
             img_ids=latent_image_ids,
             return_dict=False,
         )[0]
+        model_pred = FluxFillPipeline._unpack_latents(
+                    model_pred,
+                    height=lat.shape[2] * vae_scale,
+                    width=lat.shape[3] * vae_scale,
+                    vae_scale_factor=vae_scale,
+                )
 
-        # 7) unpack to pixel latents
-        pred_unpacked = pipe._unpack_latents(
-            model_pred,
-            height=Hlat * vae_scale,
-            width=Wlat * vae_scale,
-            vae_scale_factor=vae_scale,
-        )
-
-        # 8) flow-matching target
-          # [B,C,Hlat,Wlat]
-        #print("target", target.shape)
-        #print("pred_unpacked", pred_unpacked.shape)
-        # resize mask to match pred_unpacked (pixel space)
-        dtype = pred_unpacked.dtype
-        target = (noise - lat).to(dtype)
-        mask_big = F.interpolate(orig_mask.to(dtype), size=(pred_unpacked.shape[2], pred_unpacked.shape[3]), mode="nearest").to(dtype)
-        mask_big_bc = mask_big.expand(pred_unpacked.shape[0], pred_unpacked.shape[1], pred_unpacked.shape[2], pred_unpacked.shape[3]).to(dtype)
-        #print("mask_big_bc", mask_big_bc.shape)
-
-        loss = F.mse_loss(pred_unpacked * mask_big_bc, target * mask_big_bc)
-        #loss = F.mse_loss(pred_unpacked, target)
+        # 7) flow-matching target
+        target = (noise - lat).to(model_pred.dtype)
+      
+        loss = F.mse_loss((model_pred * mask_bc).float(), (target * mask_bc).float())
+        #loss = F.mse_loss(model_pred, target)
 
         # backward & step
         self.acc.backward(loss)
@@ -367,7 +358,5 @@ class FluxTrainerPack:
 # run
 # -------------------------
 if __name__ == "__main__":
-    from huggingface_hub import login
-    login()
-    trainer = FluxTrainerPack()
+    trainer = FluxTrainerPack("drive/MyDrive/fluxfill_lora/lora")
     trainer.train()
