@@ -18,7 +18,7 @@ from accelerate import Accelerator
 from tqdm.auto import tqdm
 import numpy as np
 import matplotlib.pyplot as plt
-
+import torchvision.transforms.functional as TF
 from diffusers import FluxFillPipeline, FlowMatchEulerDiscreteScheduler, AutoencoderKL, FluxTransformer2DModel
 from diffusers.optimization import get_scheduler
 from diffusers.training_utils import compute_density_for_timestep_sampling, compute_loss_weighting_for_sd3, free_memory
@@ -29,18 +29,18 @@ from transformers import CLIPTokenizer, T5TokenizerFast
 # CONFIG
 # -------------------------
 HF_REPO = "black-forest-labs/FLUX.1-Fill-dev"
-TRAIN_ROOT = "your_path"
+TRAIN_ROOT = "drive/MyDrive/Trainset"
 MASK_ROOT = None
 
 IMG_SIZE = 512
-BATCH_SIZE = 2
+BATCH_SIZE = 1
 EPOCHS = 10
 LR = 5e-6
 SEED = 42
 MIXED_PRECISION = "fp16"
 
-LORA_RANK = 4
-SAVE_DIR = "your_path"
+LORA_RANK = 8
+SAVE_DIR = "drive/MyDrive/fluxfill_lora"
 os.makedirs(SAVE_DIR, exist_ok=True)
 
 NUM_WORKERS = 1
@@ -64,9 +64,12 @@ class RandomMaskDataset(Dataset):
     def __init__(self, img_dir, size=512, masks_per_image=50):
         self.size = size
         self.masks_per_image = masks_per_image
-        self.img_paths = sorted([os.path.join(img_dir, f)
+
+        self.img_paths = sorted([
+            os.path.join(img_dir, f)
             for f in os.listdir(img_dir)
-            if f.lower().endswith(('.png','.jpg','.jpeg'))])
+            if f.lower().endswith(('.png','.jpg','.jpeg'))
+        ])
 
         if len(self.img_paths) == 0:
             raise ValueError(f"No images found in {img_dir}")
@@ -74,40 +77,53 @@ class RandomMaskDataset(Dataset):
         self.resize = transforms.Resize((size, size))
         self.to_tensor = transforms.ToTensor()
 
+        # allowed rotations
+        self.rotations = [0, 90, 180, 270]
+
     def _gen_bbox(self):
         if random.random() < 0.5:
             ar = random.uniform(1, 33)
         else:
             ar = random.uniform(0.03, 1)
 
-        area = random.uniform(0.1,0.33)**2
-        w = min(math.sqrt(area*ar), 0.99)
-        h = min(math.sqrt(area/ar), 0.99)
-        x1 = random.uniform(0.01, 0.99-w)
-        y1 = random.uniform(0.01, 0.99-h)
-        return x1, y1, x1+w, y1+h
+        area = random.uniform(0.1, 0.33)**2
+        w = min(math.sqrt(area * ar), 0.99)
+        h = min(math.sqrt(area / ar), 0.99)
+
+        x1 = random.uniform(0.01, 0.99 - w)
+        y1 = random.uniform(0.01, 0.99 - h)
+        return x1, y1, x1 + w, y1 + h
 
     def __len__(self):
         return max(1, len(self.img_paths) * self.masks_per_image)
 
     def __getitem__(self, idx):
+        # Load image
         img_idx = idx // self.masks_per_image
-        p = self.img_paths[img_idx % len(self.img_paths)]
-        img = Image.open(p).convert("RGB")
-        #img = self.resize(img)
-        img = self.to_tensor(img)        # [0,1]
-        img = img * 2.0 - 1.0         # [-1,1]
+        path = self.img_paths[img_idx % len(self.img_paths)]
+        img = Image.open(path).convert("RGB")
+        img = self.resize(img)
+        img = self.to_tensor(img) * 2 - 1  # [-1,1]
 
+        # Generate mask
         H, W = self.size, self.size
         x1, y1, x2, y2 = self._gen_bbox()
         x1p, y1p = int(x1 * W), int(y1 * H)
         x2p, y2p = int(x2 * W), int(y2 * H)
+
         mask = torch.zeros(1, H, W)
         if x2p <= x1p: x2p = min(x1p + 1, W)
         if y2p <= y1p: y2p = min(y1p + 1, H)
         mask[:, y1p:y2p, x1p:x2p] = 1.0
 
         masked_img = img * (1 - mask)
+
+        # --- Discrete random rotation ---
+        angle = random.choice(self.rotations)
+
+        img = TF.rotate(img, angle, interpolation=TF.InterpolationMode.NEAREST)
+        mask = TF.rotate(mask, angle, interpolation=TF.InterpolationMode.NEAREST)
+        masked_img = TF.rotate(masked_img, angle, interpolation=TF.InterpolationMode.NEAREST)
 
         return img, mask, masked_img
 
@@ -343,7 +359,7 @@ class FluxTrainerPack:
 
         # 7) flow-matching target
         target = (noise - lat).to(model_pred.dtype)
-      
+
         loss = F.mse_loss((model_pred * mask_bc).float(), (target * mask_bc).float())
         #loss = F.mse_loss(model_pred, target)
 
@@ -358,5 +374,5 @@ class FluxTrainerPack:
 # run
 # -------------------------
 if __name__ == "__main__":
-    trainer = FluxTrainerPack("drive/MyDrive/fluxfill_lora/lora")
+    trainer = FluxTrainerPack()
     trainer.train()
