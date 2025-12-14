@@ -37,18 +37,18 @@ SD2_BASE = "Manojb/stable-diffusion-2-1-base"
 VAE_REPO = SD2_BASE
 CLIP_VISION = "laion/CLIP-ViT-H-14-laion2B-s32B-b79K"
 
-TRAIN_ROOT = "your_path"
-VAL_ROOT   = "your_path"
+TRAIN_ROOT = "drive/MyDrive/Trainset"
+VAL_ROOT   = "drive/MyDrive/202509_CURRENT_Diff_VAL_set"
 
 IMG_SIZE = 512
-BATCH_SIZE = 4
+BATCH_SIZE = 1
 VAL_BATCH_SIZE = 1
 EPOCHS = 20
 LR = 2e-5
 PATIENCE = 4
 MIXED_PRECISION = "fp16"
 LATENT_MASK_THRESHOLD = 0.5
-SAVE_DIR = "your_path"
+SAVE_DIR = "drive/MyDrive/sd2/"
 os.makedirs(SAVE_DIR, exist_ok=True)
 
 
@@ -62,6 +62,12 @@ class OutpaintDataset(Dataset):
         self.masks_per_image = masks_per_image
 
         self.tf = transforms.Compose([
+            transforms.RandomChoice([
+                  transforms.Lambda(lambda x: x),
+                  transforms.Lambda(lambda x: TF.rotate(x, 90)),
+                  transforms.Lambda(lambda x: TF.rotate(x, 180)),
+                  transforms.Lambda(lambda x: TF.rotate(x, 270))
+            ]),
             transforms.Resize((img_size, img_size)),
             transforms.ToTensor(),
             transforms.Normalize([0.5]*3, [0.5]*3)
@@ -92,7 +98,7 @@ class OutpaintDataset(Dataset):
         mask = torch.zeros_like(img)
         x1 = int(bbox[0]*W); y1=int(bbox[1]*H)
         x2 = int(bbox[2]*W); y2=int(bbox[3]*H)
-        mask[:, y1:y2, x1:x2] = 1.0
+        mask[:, x1:x2, y1:y2] = 1.0
 
         masked_img = img * (1-mask)
         return masked_img, img, mask, torch.tensor(bbox), ""
@@ -223,7 +229,7 @@ class SD21InpaintTrainer_NoText:
         unet_input = torch.cat([noisy_lat, masked_lat, m_lat], dim=1)
 
         img_emb = self._vision_embeds(masked)
-        enc_hid = img_emb  # ★ ONLY VISION EMBEDDING (NO TEXT)
+        enc_hid = img_emb  # ONLY VISION EMBEDDING (NO TEXT)
 
         out = self.unet(unet_input, ts, encoder_hidden_states=enc_hid).sample
         loss = F.mse_loss(out*m_lat, noise*m_lat)
@@ -275,4 +281,5 @@ class SD21InpaintTrainer_NoText:
 # -------------------------
 trainer = SD21InpaintTrainer_NoText()
 trainer.unet.enable_gradient_checkpointing()
+trainer.accelerator.load_state("drive/MyDrive/sd2")
 trainer.train()
