@@ -29,8 +29,8 @@ from transformers import CLIPTokenizer, T5TokenizerFast
 # CONFIG
 # -------------------------
 HF_REPO = "black-forest-labs/FLUX.1-Fill-dev"
-TRAIN_ROOT = "drive/MyDrive/Trainset"
-VAL_ROOT = "drive/MyDrive/Testset"
+TRAIN_ROOT = "your_path"
+VAL_ROOT = "your_path"
 MASK_ROOT = None
 
 IMG_SIZE = 512
@@ -41,7 +41,7 @@ SEED = 42
 MIXED_PRECISION = "fp16"
 
 LORA_RANK = 8
-SAVE_DIR = "drive/MyDrive/fluxfill_lora"
+SAVE_DIR = "your_path"
 os.makedirs(SAVE_DIR, exist_ok=True)
 
 NUM_WORKERS = 1
@@ -472,5 +472,5 @@ class FluxTrainerPack:
 # run
 # -------------------------
 if __name__ == "__main__":
-    trainer = FluxTrainerPack("drive/MyDrive/fluxfill_lora/lora")
+    trainer = FluxTrainerPack("your_path")
     trainer.train()
