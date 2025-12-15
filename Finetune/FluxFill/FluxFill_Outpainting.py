@@ -18,7 +18,7 @@ OUTINFER_ROOT = "drive/MyDrive/fluxfill_outinfer"
 IMG_ROOT = "drive/MyDrive/outtest"  # images to outpaint
 DEVICE = "cuda"
 # inference defaults
-STEPS = 50
+STEPS = 200
 IMG_SIZE = 512
 # ----------------------------------------
 
