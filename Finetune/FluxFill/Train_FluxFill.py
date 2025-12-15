@@ -36,7 +36,7 @@ MASK_ROOT = None
 IMG_SIZE = 512
 BATCH_SIZE = 1
 EPOCHS = 10
-LR = 5e-6
+LR = 1e-5
 SEED = 42
 MIXED_PRECISION = "fp16"
 
@@ -56,7 +56,6 @@ def seed_everything(seed=SEED):
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(seed)
 seed_everything()
-
 
 # -------------------------
 # Dataset (simple)
@@ -369,7 +368,7 @@ class FluxTrainerPack:
         # 7) flow-matching target
         target = (noise - lat).to(model_pred.dtype)
 
-        loss = F.mse_loss((model_pred).float(), (target).float())
+        loss = F.mse_loss((model_pred*mask_bc).float(), (target*mask_bc).float())
 
         # backward & step
         self.acc.backward(loss)
@@ -430,10 +429,16 @@ class FluxTrainerPack:
         packed_masked = pipe._pack_latents(masked_lat, B, C, Hlat, Wlat)
 
         # mask pack
-        mask = mask.reshape(B, 1, 512//8, 512//8)[:, 0]
-        mask = mask.view(B, Hlat, vae_scale, Wlat, vae_scale).permute(0,2,4,1,3)
-        mask = mask.reshape(B, vae_scale*vae_scale, Hlat, Wlat)
-        packed_mask = pipe._pack_latents(mask, B, vae_scale*vae_scale, Hlat, Wlat)
+        mask = mask.reshape(-1, 1, 512 // 8, 512 // 8)
+        mask = mask[:, 0, :, :]  # batch_size, 8 * height, 8 * width (mask has not been 8x compressed)
+        mask = mask.view(lat.shape[0], lat.shape[2], vae_scale, lat.shape[3], vae_scale)  # batch_size, height, 8, width, 8
+        mask = mask.permute(0, 2, 4, 1, 3)  # batch_size, 8, 8, height, width
+        mask = mask.reshape(
+                    lat.shape[0], vae_scale * vae_scale, lat.shape[2], lat.shape[3]
+                )
+        packed_mask = pipe._pack_latents(
+            mask, batch_size=B, num_channels_latents=vae_scale*vae_scale, height=Hlat, width=Wlat
+        )
 
         masked_image_latents = torch.cat((packed_masked, packed_mask), dim=2)
         transformer_input = torch.cat((packed_noisy, masked_image_latents), dim=2)
@@ -448,10 +453,15 @@ class FluxTrainerPack:
         )
 
         timestep_argument = timesteps / 1000.0
-
+        guidance = None
+        if getattr(torch, "is_tensor", None):
+            pass
+        if getattr(transformer.config, "guidance_embeds", False):
+            guidance = torch.zeros(B, device=self.device, dtype=transformer_input.dtype)
         pred = transformer(
             hidden_states=transformer_input,
             timestep=timestep_argument,
+            guidance=guidance,
             pooled_projections=pooled_prompt_embeds,
             encoder_hidden_states=prompt_embeds,
             txt_ids=text_ids,
@@ -464,7 +474,7 @@ class FluxTrainerPack:
         )
 
         target = (noise - lat).to(pred.dtype)
-        loss = F.mse_loss(pred, targe).item()
+        loss = F.mse_loss(pred*mask_bc, target*mask_bc).item()
         return loss
 
 # -------------------------
