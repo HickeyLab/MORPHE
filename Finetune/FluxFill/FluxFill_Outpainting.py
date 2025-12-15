@@ -328,7 +328,7 @@ if __name__ == "__main__":
     # iterate any images in IMG_ROOT
     files = [os.path.join(IMG_ROOT, f) for f in os.listdir(IMG_ROOT) if f.lower().endswith((".png",".jpg",".jpeg"))]
     for p in files:
-      for j in range(2):
+      for j in range('your_attempts_times'):
         img = Image.open(p).convert("RGB")
         img_t = transform(img).unsqueeze(0).to(out_engine.device, dtype=torch.float16)   # [-1,1]
         res = out_engine.generate_iterative(img_t, steps=STEPS, crop_ratio=0.95, iterations=6, direction="up", name=f"{os.path.basename(p)}_{j}")
