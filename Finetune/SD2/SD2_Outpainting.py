@@ -325,7 +325,7 @@ if __name__ == "__main__":
 
     outpaint_engine = OutpaintEngine()
     for i in img_files:
-        for j in range(2):
+        for j in range("your_attempts_times"):
             img = Image.open(i).convert("RGB")
             img_t = outpaint_engine.transform(img).unsqueeze(0).to(outpaint_engine.accelerator.device)
             stitched_image = outpaint_engine.generate_iterative(img_t, steps=200, crop_ratio=0.95, iterations=6, direction="up", name=f"{os.path.basename(i)}_{j}")
