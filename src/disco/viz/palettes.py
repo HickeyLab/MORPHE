@@ -1,0 +1,30 @@
+from types import MappingProxyType
+
+
+DEFAULT_CELL_TYPE_COLORS = MappingProxyType({
+    "Cycling TA": "blue",
+    "CD66+ Enterocyte": "red",
+    "Enterocyte": "yellow",
+    "MUC1+ Enterocyte": "magenta",
+    "Paneth": "orange",
+    "Neuroendocrine": "green",
+    "Goblet": "brown",
+    "CD57+ Enterocyte": "black",
+    "Smooth muscle": "gray",
+    "M1 Macrophage": "skyblue",
+    "Stroma": "gold",
+    "Lymphatic": "plum",
+    "CD4+ T cell": "yellowgreen",
+    "Plasma": "tan",
+    "M2 Macrophage": "navy",
+    "DC": "bisque",
+    "NK": "goldenrod",
+    "Nerve": "blueviolet",
+    "ICC": "darkorange",
+    "CD8+ T": "teal",
+    "Endothelial": "olive",
+    "Neutrophil": "dimgray",
+    "TA": "indigo",
+    "B": "lightcoral",
+    "CD7+ Immune": "cyan",
+})
