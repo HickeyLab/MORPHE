@@ -39,14 +39,12 @@ class GCNNArtifact:
         )
         model.load_state_dict(self.state_dict, strict=True)
         
-        if device is None:
-            device = torch.device("cpu")
+        if not device:
+            device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         else:
             device = torch.device(device)
 
-        if device is not None:
-            model = model.to(device)
-
+        model = model.to(device)
         model.eval()
         return model
 

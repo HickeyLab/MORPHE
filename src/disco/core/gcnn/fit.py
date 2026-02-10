@@ -88,7 +88,6 @@ def train_gcnn(
     epochs: int = 40,
     device: torch.device | str | None = None
 ) -> GCNNArtifact:
-    
     # Validate GCNN arguments not in dataset validation
     _validate_train_gcnn_args(
         hidden_channels=hidden_channels,

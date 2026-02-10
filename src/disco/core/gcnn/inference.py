@@ -11,16 +11,17 @@ from disco.core.gcnn.data import RegionGraphDataset
 def gcnn_predict_proba(
     artifact: GCNNArtifact,
     df: pd.DataFrame,
-    output_file_path: Path,
     *,
     device: torch.device | str | None = None,
-):
+    output_file_path: Path | None = None,
+    save: bool | None = False,
+) -> pd.DataFrame:
     # Validate fields
     if df is None or not isinstance(df, pd.DataFrame):
             raise TypeError("df must be a pandas DataFrame.")
     if df.empty:
         raise ValueError("df is empty.")
-    if not output_file_path:
+    if save and not output_file_path:
         raise ValueError("Output file path empty.")
     
     # Load and build model
@@ -80,4 +81,9 @@ def gcnn_predict_proba(
     result_df = result_df[cols]
 
     # Save
-    result_df.to_csv(output_file_path, index=False)
+    if save:
+        result_df.to_csv(output_file_path, index=False)
+        
+    return result_df
+    
+    
