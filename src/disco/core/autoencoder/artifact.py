@@ -39,28 +39,38 @@ class AutoencoderArtifact:
         return model
 
     def save(self, path: str | Path) -> None:
-        torch.save(
-            {
-                "state_dict": self.state_dict,
-                "in_dim": self.in_dim,
-                "bottleneck_dim": self.bottleneck_dim,
-                "hidden_dim": self.hidden_dim,
-                "z_min": self.z_min,
-                "z_max": self.z_max
-            },
-            str(path),
-        )
+        path = Path(path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+
+        cpu_state = {k: v.detach().cpu() for k, v in self.state_dict.items()}
+        payload = {
+            "state_dict": cpu_state,
+            "in_dim": self.in_dim,
+            "bottleneck_dim": self.bottleneck_dim,
+            "hidden_dim": self.hidden_dim,
+            "z_min": self.z_min.detach().cpu(),
+            "z_max": self.z_max.detach().cpu(),
+        }
+        torch.save(payload, str(path))
 
 
     @staticmethod
     def load(path: str | Path) -> "AutoencoderArtifact":
-        payload = torch.load(path, map_location="cpu")
+        path = Path(path)
+        try:
+            payload = torch.load(str(path), map_location="cpu", weights_only=True)
+        except TypeError:
+            payload = torch.load(str(path), map_location="cpu")
+
+        for k in ("state_dict", "in_dim", "bottleneck_dim", "hidden_dim", "z_min", "z_max"):
+            if k not in payload:
+                raise ValueError(f"Invalid artifact file: missing key '{k}'")
 
         return AutoencoderArtifact(
             state_dict=payload["state_dict"],
-            in_dim=payload["in_dim"],
-            bottleneck_dim=payload["bottleneck_dim"],
-            hidden_dim=payload["hidden_dim"],
+            in_dim=int(payload["in_dim"]),
+            bottleneck_dim=int(payload["bottleneck_dim"]),
+            hidden_dim=int(payload["hidden_dim"]),
             z_min=payload["z_min"],
-            z_max=payload["z_max"]
+            z_max=payload["z_max"],
         )

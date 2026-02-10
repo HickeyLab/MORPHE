@@ -49,40 +49,66 @@ class GCNNArtifact:
         return model
 
     def save(self, path: str | Path) -> None:
-        torch.save(
-            {
-                "state_dict": self.state_dict,
-                "in_channels": self.in_channels,
-                "hidden_channels": self.hidden_channels,
-                "num_classes": self.num_classes,
-                "dropout": self.dropout,
-                "alpha": self.alpha,
-                "K": self.K,
-                "k_neighbors": self.k_neighbors,
-                "label_col": self.label_col,
-                "feature_cols": self.feature_cols,
-                "region_col": self.region_col,
-                "pos_cols": self.pos_cols,
-            },
-            str(path),
-        )
+        path = Path(path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+
+        cpu_state = {k: v.detach().cpu() for k, v in self.state_dict.items()}
+
+        payload = {
+            "state_dict": cpu_state,
+            "in_channels": int(self.in_channels),
+            "hidden_channels": int(self.hidden_channels),
+            "num_classes": int(self.num_classes),
+            "dropout": float(self.dropout),
+            "alpha": float(self.alpha),
+            "K": int(self.K),
+            "k_neighbors": int(self.k_neighbors),
+            "label_col": str(self.label_col),
+            "feature_cols": tuple(self.feature_cols),
+            "region_col": str(self.region_col),
+            "pos_cols": tuple(self.pos_cols),
+        }
+
+        torch.save(payload, str(path))
 
 
     @staticmethod
     def load(path: str | Path) -> "GCNNArtifact":
-        payload = torch.load(path, map_location="cpu")
+        path = Path(path)
+
+        try:
+            payload = torch.load(str(path), map_location="cpu", weights_only=True)
+        except TypeError:
+            payload = torch.load(str(path), map_location="cpu")
+
+        for k in (
+            "state_dict",
+            "in_channels",
+            "hidden_channels",
+            "num_classes",
+            "dropout",
+            "alpha",
+            "K",
+            "k_neighbors",
+            "label_col",
+            "feature_cols",
+            "region_col",
+            "pos_cols",
+        ):
+            if k not in payload:
+                raise ValueError(f"Invalid GCNNArtifact file: missing key '{k}'")
 
         return GCNNArtifact(
             state_dict=payload["state_dict"],
-            in_channels=payload["in_channels"],
-            hidden_channels=payload["hidden_channels"],
-            num_classes=payload["num_classes"],
-            dropout=payload["dropout"],
-            alpha=payload["alpha"],
-            K=payload["K"],
-            k_neighbors=payload["k_neighbors"],
-            label_col=payload["label_col"],
+            in_channels=int(payload["in_channels"]),
+            hidden_channels=int(payload["hidden_channels"]),
+            num_classes=int(payload["num_classes"]),
+            dropout=float(payload["dropout"]),
+            alpha=float(payload["alpha"]),
+            K=int(payload["K"]),
+            k_neighbors=int(payload["k_neighbors"]),
+            label_col=str(payload["label_col"]),
             feature_cols=tuple(payload["feature_cols"]),
-            region_col=payload["region_col"],
+            region_col=str(payload["region_col"]),
             pos_cols=tuple(payload["pos_cols"]),
         )

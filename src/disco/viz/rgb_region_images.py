@@ -2,7 +2,6 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import cv2
-import os
 
 def save_region_rgb_images(
     df: pd.DataFrame,

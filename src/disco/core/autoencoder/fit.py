@@ -3,10 +3,8 @@ import pandas as pd
 import torch
 import torch.nn.functional as F
 from torch.nn import Module
-from torch_geometric.loader import DataLoader
-from torch.utils.data import TensorDataset, random_split
+from torch.utils.data import TensorDataset, random_split, DataLoader
 from torch.optim import Adam, Optimizer
-from torch_geometric.data import Data
 from tqdm import tqdm
 from disco.core.autoencoder.artifact import AutoencoderArtifact
 
@@ -17,7 +15,7 @@ def _bio_contrastive_loss(
     orig_probs: torch.Tensor, 
     margin: float = 50.0,
     alpha: float = 0.1
-) -> float:
+) -> torch.Tensor:
     """
     Biologically weighted contrastive loss.
 
@@ -70,6 +68,7 @@ def _bio_contrastive_loss(
 
     return total_loss
 
+# TODO: ASK ABOUT BETA AND ALPHA HERE (_bio_contrastive_loss)
 def _loss_function(
     orig_probs: torch.Tensor, 
     pred_logits: torch.Tensor, 
@@ -93,7 +92,7 @@ def _df_to_prob_tensor(
 
 def _train_one_epoch(
     model: Module, 
-    loader: Iterable[Data], 
+    loader: Iterable, 
     optimizer: Optimizer,
     device: torch.device,
     alpha: float,
@@ -128,7 +127,7 @@ def _train_one_epoch(
     
 def _evaluate_one_epoch(
     model: Module, 
-    loader: Iterable[Data], 
+    loader: Iterable, 
     device: torch.device,
     alpha: float,
     epoch: int,
@@ -193,7 +192,7 @@ def _validate_train_autoencoder_args(
     if not isinstance(val_ratio, (int, float)):
         raise TypeError("val_ratio must be a float in [0, 1).")
     val_ratio = float(val_ratio)
-    if not (0.0 <= val_ratio < 1.0):
+    if not (0.0 < val_ratio < 1.0):
         raise ValueError("val_ratio must be in [0, 1).")
 
     for name, val in (
@@ -236,7 +235,7 @@ def _validate_train_autoencoder_args(
 def train_autoencoder(
     df: pd.DataFrame,
     *,
-    val_ratio: int = 0.1,
+    val_ratio: float = 0.1,
     batch_size: int = 4096,
     num_workers: int = 4,
     in_dim: int = 25,
@@ -308,7 +307,7 @@ def train_autoencoder(
             num_epochs=num_epochs
         )
     
-    z_min, z_max = _compute_z_min_max(model, emb_matrix=emb_matrix)
+    z_min, z_max = _compute_z_min_max(model, emb_matrix=emb_matrix, device=device)
     
     return AutoencoderArtifact(
         {k: v.cpu() for k, v in model.state_dict().items()},

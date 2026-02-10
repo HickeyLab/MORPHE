@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 import torch
+from disco.core.autoencoder.artifact import AutoencoderArtifact
 from disco.core.autoencoder.model import Autoencoder
 
 
@@ -10,7 +11,7 @@ def encode_to_rgb(
     *,
     z_min: torch.Tensor,
     z_max: torch.Tensor,
-    device: torch.device | str = "cuda",
+    device: torch.device | None = None,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     if not device:
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -29,6 +30,25 @@ def encode_to_rgb(
     # convert to RGB
     rgb_3d = (scaled_3d * 255).round().clamp(0, 255).to(torch.uint8)
     return rgb_3d.cpu()
+
+def encode_to_rgb_from_artifact(
+    artifact: AutoencoderArtifact, 
+    emb_matrix: np.ndarray, 
+    *, 
+    device: torch.device | None = None
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    if not device:
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    else:
+        device = torch.device(device)
+    model = artifact.build_model(device=device)
+    return encode_to_rgb(
+        model,
+        emb_matrix,
+        z_min=artifact.z_min,
+        z_max=artifact.z_max,
+        device=device,
+    )
 
 
 def add_rgb_to_df(
