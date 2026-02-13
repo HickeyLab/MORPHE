@@ -68,12 +68,18 @@ class DiffusionTrainer:
         self.noise_scheduler = DDPMScheduler.from_pretrained(pretrained, subfolder="scheduler")
         
         latent_c = self.vae.config.latent_channels
-        self.cond_proj = CondEncoder(
-            in_channels=latent_c if not getattr(cond_encoder_kwargs, "cond_in_channels", None) else getattr(cond_encoder_kwargs, "cond_in_channels", None),
-            **cond_encoder_kwargs
-        )
         if strategy.requires_coord_encoder:
             self.coord_encoder = CoordEncoder(**coord_encoder_kwargs)
+            self.cond_proj = CondEncoder(
+                in_channels=latent_c if not getattr(cond_encoder_kwargs, "cond_in_channels", None) else getattr(cond_encoder_kwargs, "cond_in_channels", None),
+                **cond_encoder_kwargs
+            )
+        else:
+            self.cond_proj = CondEncoder3D(
+                in_channels=latent_c if not getattr(cond_encoder_kwargs, "cond_in_channels", None) else getattr(cond_encoder_kwargs, "cond_in_channels", None),
+                **cond_encoder_kwargs
+            )
+
         
         self.vae.requires_grad_(False)
         self.vae.eval()
