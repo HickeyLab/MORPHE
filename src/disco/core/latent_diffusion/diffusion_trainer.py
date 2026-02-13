@@ -63,6 +63,8 @@ class DiffusionTrainer:
 
         # Load pretrained modules
         # TODO: ASK ABOUT WHETHER I SHOULD LOAD PRETRAINED STUFF FROM UNET AND CONDENCODER IN 3D?
+        #yuan:all should including unet/vae/condencoder. but for inpainting and outpainting we need coorencoder and condencoder both
+        #yuan:for 3dimputation, we only need condencoder,and the channel will change so I named it condencoder3D
         self.vae = AutoencoderKL.from_pretrained(pretrained, subfolder="vae")
         self.unet = UNet2DConditionModel.from_pretrained(pretrained, subfolder="unet")
         self.noise_scheduler = DDPMScheduler.from_pretrained(pretrained, subfolder="scheduler")
@@ -70,12 +72,12 @@ class DiffusionTrainer:
         latent_c = self.vae.config.latent_channels
         if strategy.requires_coord_encoder:
             self.coord_encoder = CoordEncoder(**coord_encoder_kwargs)
-            self.cond_proj = CondEncoder( #in_channels should be 4, out must be 736,fixed
+            self.cond_proj = CondEncoder( #yuan: in_channels should be 4, out must be 736,fixed
                 in_channels=latent_c if not getattr(cond_encoder_kwargs, "cond_in_channels", None) else getattr(cond_encoder_kwargs, "cond_in_channels", None),
                 **cond_encoder_kwargs
             )
         else:
-            self.cond_proj = CondEncoder3D( #in_channels should be 4, out must be 768,fixed
+            self.cond_proj = CondEncoder3D( #yuan: in_channels should be 4, out must be 768,fixed
                 in_channels=latent_c if not getattr(cond_encoder_kwargs, "cond_in_channels", None) else getattr(cond_encoder_kwargs, "cond_in_channels", None),
                 **cond_encoder_kwargs
             )
