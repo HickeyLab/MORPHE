@@ -145,7 +145,7 @@ class Slice3DDataset(Dataset):
         )
         
         
-class OutpaintDataset(Dataset):
+class InpaintDataset(Dataset):
     def __init__(self, root_dir, img_size=512, masks_per_image=50):
         self.img_files = [os.path.join(root_dir, f) for f in os.listdir(root_dir)]
         self.img_size = img_size
@@ -225,7 +225,7 @@ class OutpaintDataset(Dataset):
         return masked_img, img, mask
     
     
-class Stage1Dataset(Dataset):
+class OutpaintDataset(Dataset):
     def __init__(self, root_dir, img_size=512, masks_per_image=100):
         self.img_files = [os.path.join(root_dir, f) for f in os.listdir(root_dir)]
         self.img_size = img_size
