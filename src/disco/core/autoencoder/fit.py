@@ -245,7 +245,7 @@ def train_autoencoder(
     num_epochs: int = 20,
     alpha: float = 0.1,
     device: torch.device | None = None
-):
+) -> AutoencoderArtifact:
     _validate_train_autoencoder_args(
         df=df,
         val_ratio=val_ratio,
