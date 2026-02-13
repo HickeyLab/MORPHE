@@ -88,3 +88,29 @@ class CoordEncoder(nn.Module):
         x = self.mlp(x)  # (B, 64*32)
         x = x.view(B, self.num_tokens, self.embed_dim)  # (B,64,32)
         return x
+
+class CondEncoder3D(nn.Module):
+    def __init__(self, in_channels=4, out_channels=768, num_tokens=64):
+        super().__init__()
+        self.encoder = nn.Sequential(
+            ResidualBlock(in_channels, 64), # [B, 64, 64, 64]
+            nn.AvgPool2d(2), # [B, 64, 32, 32]
+            ResidualBlock(64, 128),
+            nn.AvgPool2d(2), # [B, 128, 16, 16]
+            ResidualBlock(128, 256),
+            nn.AvgPool2d(2), # [B, 256, 8, 8]
+            nn.Conv2d(256, out_channels, kernel_size=1) # [B, 736, 8, 8]
+        )
+        self.proj = nn.Sequential(
+            nn.Flatten(2),  # [B, 736, 64]
+            Transpose(-1, -2),   # [B, 64, 736]
+        )
+        self.pos_embed = PositionalEncoding2D(num_patches=num_tokens, dim=out_channels)
+        self.norm = nn.LayerNorm(out_channels)
+
+    def forward(self, x):
+        feat = self.encoder(x)          # [B, 736, 8, 8]
+        tokens = self.proj(feat)        # [B, 64, 736]
+        tokens = self.pos_embed(tokens) # [B, 64, 736]
+        tokens = self.norm(tokens)
+        return tokens
