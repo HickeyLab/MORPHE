@@ -70,7 +70,7 @@ class DiffusionTrainer:
         latent_c = self.vae.config.latent_channels
         if strategy.requires_coord_encoder:
             self.coord_encoder = CoordEncoder(**coord_encoder_kwargs)
-            self.cond_proj = CondEncoder(
+            self.cond_proj = CondEncoder( #in_channels should be 4, out must be 736,fixed
                 in_channels=latent_c if not getattr(cond_encoder_kwargs, "cond_in_channels", None) else getattr(cond_encoder_kwargs, "cond_in_channels", None),
                 **cond_encoder_kwargs
             )
