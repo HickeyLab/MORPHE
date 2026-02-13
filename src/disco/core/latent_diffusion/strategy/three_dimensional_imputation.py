@@ -28,6 +28,14 @@ class ThreeDimensionalImputation(DiffusionStrategy):
     
 
     def train_step(self, trainer: DiffusionTrainer, batch):
+        """
+        batch: (img_prev, img_next, img_mid)
+        All tensors are on device (accelerator.prepare DataLoader handles pin).
+        Behavior:
+          - use prev as the base to add noise
+          - use next as the condition (via cond_proj)
+          - use mid as the target latent for loss
+        """
         img_prev, img_next, img_mid, wp, wn = batch  # each: [B, 3, H, W]
 
         # encode latents (no grad)
