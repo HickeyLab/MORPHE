@@ -75,12 +75,10 @@ class DiffusionTrainer:
                 **cond_encoder_kwargs
             )
         else:
-            self.cond_proj = CondEncoder3D(
+            self.cond_proj = CondEncoder3D( #in_channels should be 4, out must be 768,fixed
                 in_channels=latent_c if not getattr(cond_encoder_kwargs, "cond_in_channels", None) else getattr(cond_encoder_kwargs, "cond_in_channels", None),
                 **cond_encoder_kwargs
             )
-
-        
         self.vae.requires_grad_(False)
         self.vae.eval()
         self.scaling_factor = _get_scaling_factor(self.vae)
