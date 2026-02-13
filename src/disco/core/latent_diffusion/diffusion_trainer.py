@@ -8,7 +8,7 @@ from accelerate import Accelerator
 from tqdm import tqdm
 from disco.core.latent_diffusion.artifact import LatentDiffuserArtifact
 
-from disco.core.latent_diffusion.model import CondEncoder, CoordEncoder
+from disco.core.latent_diffusion.model import CondEncoder, CoordEncoder, CondEncoder3D
 from disco.core.latent_diffusion.strategy.base import DiffusionStrategy
 from disco.viz.loss_curve import plot_loss_curve
 
