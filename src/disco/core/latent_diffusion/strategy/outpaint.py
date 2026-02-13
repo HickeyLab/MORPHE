@@ -6,7 +6,7 @@ from torch.utils.data import Dataset
 import torch.nn.functional as F
 from tqdm import tqdm
 
-from disco.core.latent_diffusion.data import Stage1Dataset
+from disco.core.latent_diffusion.data import OutpaintDataset
 from disco.core.latent_diffusion.diffusion_trainer import DiffusionTrainer
 from disco.core.latent_diffusion.strategy.base import DiffusionStrategy
 
@@ -24,7 +24,7 @@ class OutpaintDiffusion(DiffusionStrategy):
     ) -> tuple[Dataset, Dataset]:
         if not root_dir:
             raise ValueError("No root_dir provided.")
-        return (Stage1Dataset(root_dir, self.img_size, self.masks_per_image_train), Stage1Dataset(root_dir, self.img_size, self.masks_per_image_val)) 
+        return (OutpaintDataset(root_dir, self.img_size, self.masks_per_image_train), OutpaintDataset(root_dir, self.img_size, self.masks_per_image_val)) 
     
     def _create_latent_mask(bbox, latent_shape, device):
         b, _, H, W = latent_shape
