@@ -28,45 +28,38 @@ class ThreeDimensionalImputation(DiffusionStrategy):
     
 
     def train_step(self, trainer: DiffusionTrainer, batch):
-        masked_imgs, target_imgs, mask = batch
+        img_prev, img_next, img_mid, wp, wn = batch  # each: [B, 3, H, W]
 
-        # target latents
+        # encode latents (no grad)
         with torch.no_grad():
-            target_latents = trainer.vae.encode(target_imgs).latent_dist.sample()
-            target_latents = target_latents * trainer.vae.config.scaling_factor
+            latent_prev = self.vae.encode(img_prev).latent_dist.sample() * self.scaling_factor
+            latent_next = self.vae.encode(img_next).latent_dist.sample() * self.scaling_factor
+            latent_mid  = self.vae.encode(img_mid).latent_dist.sample() * self.scaling_factor
 
-        B, C, lh, lw = target_latents.shape
-
-        latent_mask = F.interpolate(mask, size=(lh, lw), mode="nearest")
-        latent_mask = latent_mask.expand(-1, target_latents.shape[1], -1, -1)  # (B,4,lh,lw)
-
-        noise = torch.randn_like(target_latents)
+        # noise + timesteps
+        noise = torch.randn_like(latent_prev)
         timesteps = torch.randint(
-            0, trainer.noise_scheduler.config.num_train_timesteps,
-            (B,), device=target_latents.device
+            0,
+            self.noise_scheduler.config.num_train_timesteps,
+            (latent_prev.shape[0],),
+            device=latent_prev.device,
+            dtype=torch.long
         )
 
-        noisy_latents = trainer.noise_scheduler.add_noise(
-            target_latents * latent_mask,
-            noise * latent_mask,
-            timesteps
-        )
-        noisy_latents = target_latents * (1-latent_mask) + noisy_latents
+        # add noise to the BASE latent (prev) — this is the noisy starting point
+        noisy_latents = self.noise_scheduler.add_noise(latent_mid, noise, timesteps)
 
-        # masked latents for CondEncoder
-        with torch.no_grad():
-            masked_latents = trainer.vae.encode(masked_imgs).latent_dist.sample()
-            masked_latents = masked_latents * trainer.vae.config.scaling_factor
+        # build condition tokens from next latent (use next as condition)
+        wp = wp.view(-1, 1, 1, 1)   # [B,1,1,1]
+        wn = wn.view(-1, 1, 1, 1)
+        condition = self.cond_proj(wp*latent_prev + wn*latent_next)  # [B, num_tokens, cond_dim]
 
-        # Encode conditions
-        cond_tokens = trainer.cond_proj(masked_latents)      # (B,64,736)
-        coord_tokens = trainer.coord_encoder(mask)         # (B,64,32)
+        # predict (model.sample follows previous pattern)
+        pred = self.unet(noisy_latents, timesteps, encoder_hidden_states=condition).sample
 
-        condition = torch.cat([cond_tokens, coord_tokens], dim=-1)  # (B,64,768)
-
-        noise_pred = trainer.unet(noisy_latents, timesteps, encoder_hidden_states=condition).sample
-
-        loss = F.mse_loss(noise_pred * latent_mask, noise * latent_mask)
+        # MSE loss between predicted output and target (mid latent)
+        # Mid as target, so compare to latent_mid
+        loss = F.mse_loss(pred, latent_mid)
         return loss
 
     def validate_step(self, trainer: DiffusionTrainer) -> float:
