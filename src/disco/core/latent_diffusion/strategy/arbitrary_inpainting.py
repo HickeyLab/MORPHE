@@ -5,7 +5,7 @@ import torch
 from torch.utils.data import Dataset
 import torch.nn.functional as F
 
-from disco.core.latent_diffusion.data import OutpaintDataset
+from disco.core.latent_diffusion.data import InpaintDataset
 from disco.core.latent_diffusion.diffusion_trainer import DiffusionTrainer
 from disco.core.latent_diffusion.strategy.base import DiffusionStrategy
 
@@ -23,7 +23,7 @@ class ArbitraryInpainting(DiffusionStrategy):
     ) -> tuple[Dataset, Dataset]:
         if not root_dir:
             raise ValueError("No root_dir provided.")
-        return (OutpaintDataset(root_dir, self.img_size, self.masks_per_image_train), OutpaintDataset(root_dir, self.img_size, self.masks_per_image_val)) 
+        return (InpaintDataset(root_dir, self.img_size, self.masks_per_image_train), InpaintDataset(root_dir, self.img_size, self.masks_per_image_val)) 
     
 
     def train_step(self, trainer: DiffusionTrainer, batch):
