@@ -4,20 +4,35 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 class Transpose(nn.Module):
-    def __init__(self, dim0, dim1):
+    def __init__(
+        self, 
+        dim0: int, 
+        dim1: int
+    ):
         super().__init__()
         self.dim0 = dim0
         self.dim1 = dim1
 
-    def forward(self, x):
+    def forward(
+        self, 
+        x: torch.Tensor
+    ):
         return x.transpose(self.dim0, self.dim1)
 
 class PositionalEncoding2D(nn.Module):
-    def __init__(self, num_patches, dim):
+    def __init__(
+        self, 
+        num_patches: int, 
+        dim: int
+    ):
         super().__init__()
         self.register_buffer('pos_embed', self.build_sincos_encoding(num_patches, dim), persistent=False)
 
-    def build_sincos_encoding(self, num_patches, dim):
+    def build_sincos_encoding(
+        self, 
+        num_patches: int, 
+        dim: int
+    ):
         pe = torch.zeros(num_patches, dim)
         position = torch.arange(0, num_patches, dtype=torch.float).unsqueeze(1)
         div_term = torch.exp(torch.arange(0, dim, 2).float() * (-math.log(10000.0) / dim))
@@ -25,11 +40,15 @@ class PositionalEncoding2D(nn.Module):
         pe[:, 1::2] = torch.cos(position * div_term)
         return pe.unsqueeze(0)  # [1, num_patches, dim]
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor):
         return x + self.pos_embed[:, :x.size(1), :]
 
 class ResidualBlock(nn.Module):
-    def __init__(self, in_channels, out_channels):
+    def __init__(
+        self, 
+        in_channels: int, 
+        out_channels: int
+    ):
         super().__init__()
         self.block = nn.Sequential(
             nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1),
@@ -40,11 +59,16 @@ class ResidualBlock(nn.Module):
         )
         self.skip = nn.Conv2d(in_channels, out_channels, kernel_size=1) if in_channels != out_channels else nn.Identity()
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor):
         return self.block(x) + self.skip(x)
 
 class CondEncoder(nn.Module):
-    def __init__(self, in_channels=4, out_channels=736, num_tokens=64):
+    def __init__(
+        self, 
+        in_channels: int = 4, 
+        out_channels: int = 736, 
+        num_tokens: int = 64
+    ):
         super().__init__()
         self.encoder = nn.Sequential(
             ResidualBlock(in_channels, 64), # [B, 64, 64, 64]
@@ -62,7 +86,7 @@ class CondEncoder(nn.Module):
         self.pos_embed = PositionalEncoding2D(num_patches=num_tokens, dim=out_channels)
         self.norm = nn.LayerNorm(out_channels)
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor):
         feat = self.encoder(x)          # [B, 736, 8, 8]
         tokens = self.proj(feat)        # [B, 64, 736]
         tokens = self.pos_embed(tokens) # [B, 64, 736]
@@ -70,7 +94,11 @@ class CondEncoder(nn.Module):
         return tokens
 
 class CoordEncoder(nn.Module):
-    def __init__(self, embed_dim=32, num_tokens=64):
+    def __init__(
+        self, 
+        embed_dim: int = 32, 
+        num_tokens: int = 64
+    ):
         super().__init__()
         self.num_tokens = num_tokens
         self.embed_dim = embed_dim
@@ -81,7 +109,10 @@ class CoordEncoder(nn.Module):
             nn.Linear(2048, num_tokens * embed_dim)  # 64 * 32
         )
 
-    def forward(self, mask):
+    def forward(
+        self, 
+        mask: torch.Tensor
+    ):
         mask_ds = F.interpolate(mask, size=(64, 64), mode="nearest")  # (B,1,64,64)
         B = mask_ds.shape[0]
         x = mask_ds.view(B, -1)  # (B, 4096)
@@ -90,7 +121,12 @@ class CoordEncoder(nn.Module):
         return x
 
 class CondEncoder3D(nn.Module):
-    def __init__(self, in_channels=4, out_channels=768, num_tokens=64):
+    def __init__(
+        self,
+        in_channels: int = 4, 
+        out_channels: int = 768, 
+        num_tokens: int = 64
+    ):
         super().__init__()
         self.encoder = nn.Sequential(
             ResidualBlock(in_channels, 64), # [B, 64, 64, 64]
@@ -108,7 +144,7 @@ class CondEncoder3D(nn.Module):
         self.pos_embed = PositionalEncoding2D(num_patches=num_tokens, dim=out_channels)
         self.norm = nn.LayerNorm(out_channels)
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor):
         feat = self.encoder(x)          # [B, 736, 8, 8]
         tokens = self.proj(feat)        # [B, 64, 736]
         tokens = self.pos_embed(tokens) # [B, 64, 736]

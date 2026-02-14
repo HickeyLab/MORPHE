@@ -44,8 +44,6 @@ class LatentDiffuserArtifact:
         unet = UNet2DConditionModel.from_config(dict(self.unet_config))
         unet.load_state_dict(self.unet_state_dict, strict=True)
         
-        #yuan: since we have two different condencoder I roughly changed it to this for understanding.
-        #I know it's ugly, maybe you could think of some other method to adapt 2 version of conencoder
         requires_coord = bool(getattr(strategy, "requires_coord_encoder", False))
         if requires_coord:
             if self.coord_encoder_state_dict is None or self.coord_encoder_kwargs is None:
@@ -54,11 +52,9 @@ class LatentDiffuserArtifact:
                 )
             coord_enc = CoordEncoder(**dict(self.coord_encoder_kwargs))
             coord_enc.load_state_dict(self.coord_encoder_state_dict, strict=True)
-            cond_enc = CondEncoder(**dict(self.cond_encoder_kwargs))
-            cond_enc.load_state_dict(self.cond_encoder_state_dict, strict=True)
-        else:
-            cond_enc = CondEncoder3D(**dict(self.cond_encoder_kwargs))
-            cond_enc.load_state_dict(self.cond_encoder_state_dict, strict=True)
+        
+        cond_enc = CondEncoder3D(**dict(self.cond_encoder_kwargs)) if strategy.three_dimensional_cond_encoder else CondEncoder(**dict(self.cond_encoder_kwargs))
+        cond_enc.load_state_dict(self.cond_encoder_state_dict, strict=True)
 
         if dtype is not None:
             unet = unet.to(device=device, dtype=dtype)

@@ -9,7 +9,9 @@ from disco.core.latent_diffusion.diffusion_trainer import DiffusionTrainer
 
 
 class DiffusionStrategy(ABC):
+    name: str = ""
     requires_coord_encoder: bool = False
+    three_dimensional_cond_encoder: bool = False
     train_num_workers: int = 4
     val_num_workers: int = 2
 
