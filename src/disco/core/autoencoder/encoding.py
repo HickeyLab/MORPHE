@@ -14,10 +14,10 @@ def encode_to_rgb(
     device: torch.device | None = None,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     if not device:
-        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     else:
         device = torch.device(device)
-        
+
     model.eval()
     with torch.no_grad():
         z = model.encoder(emb_matrix.to(device))
@@ -31,36 +31,59 @@ def encode_to_rgb(
     rgb_3d = (scaled_3d * 255).round().clamp(0, 255).to(torch.uint8)
     return rgb_3d.cpu()
 
-def encode_to_rgb_from_artifact(
-    artifact: AutoencoderArtifact, 
-    emb_matrix: np.ndarray, 
-    *, 
-    device: torch.device | None = None
-) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    if not device:
-        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    else:
-        device = torch.device(device)
-    model = artifact.build_model(device=device)
-    return encode_to_rgb(
-        model,
-        emb_matrix,
-        z_min=artifact.z_min,
-        z_max=artifact.z_max,
-        device=device,
-    )
-
 
 def add_rgb_to_df(
-    df: pd.DataFrame, 
+    df: pd.DataFrame,
     rgb_3d: torch.Tensor,
     *,
     r_col: str = "R",
     g_col: str = "G",
-    b_col: str = "B"
+    b_col: str = "B",
 ) -> pd.DataFrame:
     out = df.copy()
     out[r_col] = rgb_3d[:, 0].numpy()
     out[g_col] = rgb_3d[:, 1].numpy()
     out[b_col] = rgb_3d[:, 2].numpy()
     return out
+
+class AutoencoderRGBInferencer:
+    """
+    Structural wrapper around the existing functions.
+    Intentionally does NOT change the underlying inference logic.
+    """
+
+    def __init__(
+        self,
+        artifact: AutoencoderArtifact,
+        *,
+        device: torch.device | None = None,
+    ) -> None:
+        self.artifact = artifact
+        self.device = device
+
+    def encode_to_rgb(self, emb_matrix: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        if not self.device:
+            device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        else:
+            device = torch.device(self.device)
+
+        model = self.artifact.build_model(device=device)
+        return encode_to_rgb(
+            model,
+            emb_matrix,
+            z_min=self.artifact.z_min,
+            z_max=self.artifact.z_max,
+            device=device,
+        )
+
+    def encode_to_rgb_df(
+        self,
+        df: pd.DataFrame,
+        emb_matrix: np.ndarray,
+        *,
+        r_col: str = "R",
+        g_col: str = "G",
+        b_col: str = "B",
+    ) -> pd.DataFrame:
+        rgb_3d = self.encode_to_rgb(emb_matrix)
+        return add_rgb_to_df(df, rgb_3d, r_col=r_col, g_col=g_col, b_col=b_col)

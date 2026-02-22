@@ -92,7 +92,7 @@ class DiffusionTrainer:
 
         self.optimizer = torch.optim.AdamW(params, lr=lr)
         
-         # prepare components with accelerator
+        # prepare components with accelerator
         if strategy.requires_coord_encoder:
             (
                 self.vae,
