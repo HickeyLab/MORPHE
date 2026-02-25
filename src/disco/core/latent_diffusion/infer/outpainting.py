@@ -8,29 +8,29 @@ import numpy as np
 import torch
 from PIL import Image
 from torchvision import transforms
-from disco.core.autoencoder.artifact import AutoencoderArtifact
+from src.disco.core.latent_diffusion.artifact import LatentDiffuserArtifact
 
-from disco.core.latent_diffusion.infer.base import InferenceResult, LatentDiffusionInferencer
-from disco.core.latent_diffusion.strategy.outpaint import OutpaintDiffusion
-from disco.viz.decoded_img import plot_decoded_image
+from src.disco.core.latent_diffusion.infer.base import InferenceResult, LatentDiffusionInferencer
+from src.disco.core.latent_diffusion.strategy.outpaint import OutpaintDiffusion
+from src.disco.viz.decoded_img import plot_decoded_image
 
 
 Direction = Literal["right", "left", "down", "up"]
 
 
 class OutpaintInferencer(LatentDiffusionInferencer):
-    REQUIRED_STRATEGY_NAME = "outpaint_diffusion"
+    REQUIRED_STRATEGY_NAME = "outpainting"
 
     def __init__(
         self, 
         *, 
-        artifact: AutoencoderArtifact, 
+        artifact: LatentDiffuserArtifact,
         strategy: OutpaintDiffusion, 
         pretrained_path: str = "runwayml/stable-diffusion-v1-5",
         device: torch.device | str | None = None,
         dtype: torch.dtype | None = None,
     ) -> None:
-        if getattr(strategy, "strategy_name", None) != self.REQUIRED_STRATEGY_NAME:
+        if getattr(strategy, "name", None) != self.REQUIRED_STRATEGY_NAME:
             raise TypeError(
                 f"OutpaintInferencer requires strategy_name='{self.REQUIRED_STRATEGY_NAME}', "
                 f"got {getattr(strategy, 'strategy_name', None)!r}"
@@ -96,8 +96,8 @@ class OutpaintInferencer(LatentDiffusionInferencer):
 
         if self.vae is None or self.unet is None or self.noise_scheduler is None:
             raise RuntimeError("Inferencer requires loaded VAE, UNet, and noise_scheduler.")
-        if self.cond_proj is None or self.coord_encoder is None:
-            raise RuntimeError("Inferencer requires cond_proj and coord_encoder.")
+        if self.cond_proj is None or self.bbox_encoder is None:
+            raise RuntimeError("Inferencer requires cond_proj and bbox_encoder.")
 
         return original_path, save_dir
 
@@ -225,11 +225,8 @@ class OutpaintInferencer(LatentDiffusionInferencer):
         current_image = image_tensor.clone()
         b, c, h, w = current_image.shape
         
-        # TODO: ALLOW TO BE CHANGED?
+        # Fixed
         lh, lw = 64, 64
-        
-        # TODO: NOT USED?
-        _ = self._compute_mean_std(current_image)
 
         crop_w, crop_h = int(w * crop_ratio), int(h * crop_ratio)
         crop_lw, crop_lh = int(lw * crop_ratio), int(lh * crop_ratio)
@@ -296,7 +293,7 @@ class OutpaintInferencer(LatentDiffusionInferencer):
             condition = torch.cat(
                 [
                     self.cond_proj(masked_latents),
-                    self.coord_encoder(bbox).unsqueeze(1).expand(-1, 64, -1),
+                    self.bbox_encoder(bbox).unsqueeze(1).expand(-1, 64, -1),
                 ],
                 dim=-1,
             )

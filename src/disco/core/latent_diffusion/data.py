@@ -146,7 +146,7 @@ class Slice3DDataset(Dataset):
         
         
 class InpaintDataset(Dataset):
-    def __init__(self, root_dir, img_size=512, masks_per_image=50):
+    def __init__(self, root_dir, img_size=512, masks_per_image=2):
         self.img_files = [os.path.join(root_dir, f) for f in os.listdir(root_dir)]
         self.img_size = img_size
         self.masks_per_image = masks_per_image
@@ -278,4 +278,4 @@ class OutpaintDataset(Dataset):
 
         masked_img = img * (1 - mask)
 
-        return masked_img, img, bbox
+        return masked_img, img, torch.tensor(bbox)

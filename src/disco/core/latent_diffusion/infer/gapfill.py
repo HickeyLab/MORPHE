@@ -5,10 +5,10 @@ import numpy as np
 import torch
 from PIL import Image
 from torchvision import transforms
-from disco.core.latent_diffusion.artifact import LatentDiffuserArtifact
-from disco.core.latent_diffusion.strategy.outpaint import OutpaintDiffusion
+from src.disco.core.latent_diffusion.artifact import LatentDiffuserArtifact
+from src.disco.core.latent_diffusion.strategy.outpaint import OutpaintDiffusion
 
-from disco.viz.decoded_img import plot_decoded_image
+from src.disco.viz.decoded_img import plot_decoded_image
 
 from .base import LatentDiffusionInferencer, InferenceResult
 
@@ -224,7 +224,7 @@ class GapfillInferencer(LatentDiffusionInferencer):
 
             condition = torch.cat([
                 self.cond_proj(masked_latent),
-                self.coord_encoder(bbox).unsqueeze(1).expand(-1, 64, -1)
+                self.bbox_encoder(bbox).unsqueeze(1).expand(-1, 64, -1)
             ], dim=-1)
 
             cnt = 0

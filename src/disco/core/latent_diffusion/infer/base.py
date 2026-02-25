@@ -4,8 +4,8 @@ from dataclasses import dataclass
 from typing import Any, Optional
 
 import torch
-from disco.core.latent_diffusion.artifact import LatentDiffuserArtifact, LatentDiffusionRuntime
-from disco.core.latent_diffusion.strategy.base import DiffusionStrategy
+from src.disco.core.latent_diffusion.artifact import LatentDiffuserArtifact, LatentDiffusionRuntime
+from src.disco.core.latent_diffusion.strategy.base import DiffusionStrategy
 
 @dataclass(frozen=True)
 class InferenceResult:
@@ -36,6 +36,7 @@ class LatentDiffusionInferencer(ABC):
         self.unet = rt.unet
         self.noise_scheduler = rt.noise_scheduler
         self.coord_encoder = rt.coord_encoder
+        self.bbox_encoder = rt.bbox_encoder
         self.cond_proj = rt.cond_proj
         self.scaling_factor = rt.scaling_factor
         self.device = device

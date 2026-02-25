@@ -1,80 +1,163 @@
+from __future__ import annotations
+
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TYPE_CHECKING, Optional
 
 import torch
-from torch.utils.data import Dataset
 import torch.nn.functional as F
+from torch.utils.data import Dataset
 
 from src.disco.core.latent_diffusion.data import InpaintDataset
-from src.disco.core.latent_diffusion.diffusion_trainer import DiffusionTrainer
 from src.disco.core.latent_diffusion.strategy.base import DiffusionStrategy
+
+if TYPE_CHECKING:
+    from src.disco.core.latent_diffusion.diffusion_trainer import DiffusionTrainer
 
 
 @dataclass(frozen=True)
 class ArbitraryInpainting(DiffusionStrategy):
+
+    # --------------------------------------------------
+    # Metadata (kept)
+    # --------------------------------------------------
     name: str = "arbitrary_inpainting"
-    masks_per_image_train: int = 50,
-    masks_per_image_val: int = 5,
-    img_size: int = 512,
-    
+    requires_coord_encoder: bool = True
+    three_dimensional_cond_encoder: bool = False
+
+    # workers (kept)
+    train_num_workers: int = 4
+    val_num_workers: int = 2
+
+    # training control (kept)
+    patience: Optional[int] = None
+    decay_enabled: Optional[bool] = None
+    lr_decay_every: Optional[int] = None
+    lr_decay_factor: Optional[float] = None
+
+    # task-specific params
+    masks_per_image_train: int = 2
+    masks_per_image_val: int = 5
+    img_size: int = 512
+
+    # --------------------------------------------------
+    # Dataset
+    # --------------------------------------------------
     def build_dataset(
-        self, 
+        self,
         root_dir: Path,
     ) -> tuple[Dataset, Dataset]:
-        if not root_dir:
-            raise ValueError("No root_dir provided.")
-        return (InpaintDataset(root_dir, self.img_size, self.masks_per_image_train), InpaintDataset(root_dir, self.img_size, self.masks_per_image_val)) 
-    
 
-    def train_step(self, trainer: DiffusionTrainer, batch):
+        train_dir = root_dir / "train"
+        val_dir = root_dir / "val"
+
+        train_dataset = InpaintDataset(
+            train_dir,
+            img_size=self.img_size,
+            masks_per_image=self.masks_per_image_train,
+        )
+
+        val_dataset = InpaintDataset(
+            val_dir,
+            img_size=self.img_size,
+            masks_per_image=self.masks_per_image_val,
+        )
+
+        return train_dataset, val_dataset
+
+    # --------------------------------------------------
+    # FULL train step
+    # --------------------------------------------------
+    def train_step(
+        self,
+        trainer: "DiffusionTrainer",
+        batch,
+    ) -> torch.Tensor:
+
         masked_imgs, target_imgs, mask = batch
 
-        # target latents
+        device = trainer.accelerator.device
+        masked_imgs = masked_imgs.to(device)
+        target_imgs = target_imgs.to(device)
+        mask = mask.to(device)
+
+        # ---------------------------------------
+        # Encode target latents
+        # ---------------------------------------
         with torch.no_grad():
             target_latents = trainer.vae.encode(target_imgs).latent_dist.sample()
-            target_latents = target_latents * trainer.vae.config.scaling_factor
+            target_latents = target_latents * trainer.scaling_factor
 
         B, C, lh, lw = target_latents.shape
 
+        # ---------------------------------------
+        # Build latent mask
+        # ---------------------------------------
         latent_mask = F.interpolate(mask, size=(lh, lw), mode="nearest")
-        latent_mask = latent_mask.expand(-1, target_latents.shape[1], -1, -1)  # (B,4,lh,lw)
+        latent_mask = latent_mask.expand(-1, C, -1, -1)
 
+        # ---------------------------------------
+        # Diffusion forward
+        # ---------------------------------------
         noise = torch.randn_like(target_latents)
+
         timesteps = torch.randint(
-            0, trainer.noise_scheduler.config.num_train_timesteps,
-            (B,), device=target_latents.device
+            0,
+            trainer.noise_scheduler.config.num_train_timesteps,
+            (B,),
+            device=device,
         )
 
         noisy_latents = trainer.noise_scheduler.add_noise(
             target_latents * latent_mask,
             noise * latent_mask,
-            timesteps
+            timesteps,
         )
-        noisy_latents = target_latents * (1-latent_mask) + noisy_latents
 
-        # masked latents for CondEncoder
+        noisy_latents = target_latents * (1 - latent_mask) + noisy_latents
+
+        # ---------------------------------------
+        # Condition encoding
+        # ---------------------------------------
         with torch.no_grad():
             masked_latents = trainer.vae.encode(masked_imgs).latent_dist.sample()
-            masked_latents = masked_latents * trainer.vae.config.scaling_factor
+            masked_latents = masked_latents * trainer.scaling_factor
 
-        # Encode conditions
-        cond_tokens = trainer.cond_proj(masked_latents)      # (B,64,736)
-        coord_tokens = trainer.coord_encoder(mask)         # (B,64,32)
+        cond_tokens = trainer.cond_proj(masked_latents)
+        coord_tokens = trainer.coord_encoder(mask)
 
-        condition = torch.cat([cond_tokens, coord_tokens], dim=-1)  # (B,64,768)
+        condition = torch.cat([cond_tokens, coord_tokens], dim=-1)
 
-        noise_pred = trainer.unet(noisy_latents, timesteps, encoder_hidden_states=condition).sample
+        # ---------------------------------------
+        # UNet forward
+        # ---------------------------------------
+        noise_pred = trainer.unet(
+            noisy_latents,
+            timesteps,
+            encoder_hidden_states=condition,
+        ).sample
 
+        # ---------------------------------------
+        # Loss
+        # ---------------------------------------
         loss = F.mse_loss(noise_pred * latent_mask, noise * latent_mask)
+
         return loss
 
-    def validate_step(self, trainer: DiffusionTrainer) -> float:
+    # --------------------------------------------------
+    # Validation
+    # --------------------------------------------------
+    def validate_step(self, trainer: "DiffusionTrainer") -> float:
+
         trainer.unet.eval()
-        tot = 0
-        cnt = 0
+
+        total = 0.0
+        count = 0
+
         with torch.no_grad():
             for batch in trainer.val_loader:
-                loss = self.train_step(batch)
-                tot += loss.item()
-                cnt += 1
-        return tot / max(cnt, 1)
+                loss = self.train_step(trainer, batch)
+                total += loss.item()
+                count += 1
+
+        return total / max(count, 1)

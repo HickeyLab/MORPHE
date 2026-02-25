@@ -1,8 +1,5 @@
-from matplotlib import pyplot as plt
-
-
 from __future__ import annotations
-
+from matplotlib import pyplot as plt
 from pathlib import Path
 from typing import Sequence
 

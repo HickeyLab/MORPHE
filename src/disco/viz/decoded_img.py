@@ -1,10 +1,6 @@
-from matplotlib import pyplot as plt
-
-
 from __future__ import annotations
-
+from matplotlib import pyplot as plt
 from typing import Sequence
-
 import matplotlib.pyplot as plt
 import numpy as np
 

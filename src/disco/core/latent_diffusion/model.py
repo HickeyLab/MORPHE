@@ -150,3 +150,20 @@ class CondEncoder3D(nn.Module):
         tokens = self.pos_embed(tokens) # [B, 64, 736]
         tokens = self.norm(tokens)
         return tokens
+
+
+class BBoxEncoder(nn.Module):
+    def __init__(
+        self,
+        in_dim: int = 4,
+        out_dim: int = 32,
+    ):
+        super().__init__()
+
+        self.encoder = nn.Sequential(
+            nn.Linear(in_dim, out_dim),
+            nn.GELU(),
+        )
+
+    def forward(self, bbox: torch.Tensor) -> torch.Tensor:
+        return self.encoder(bbox)

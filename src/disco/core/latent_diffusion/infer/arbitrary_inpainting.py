@@ -7,12 +7,11 @@ import torch
 import torch.nn.functional as F
 from PIL import Image
 import matplotlib.pyplot as plt
-from disco.core.latent_diffusion.artifact import LatentDiffuserArtifact
+from src.disco.core.latent_diffusion.artifact import LatentDiffuserArtifact
 
-from disco.core.latent_diffusion.infer.base import InferenceResult, LatentDiffusionInferencer
-from disco.core.latent_diffusion.strategy.arbitrary_inpainting import ArbitraryInpainting
-from disco.viz.decoded_img import plot_decoded_image, plot_inpainting_triplet
-
+from src.disco.core.latent_diffusion.infer.base import InferenceResult, LatentDiffusionInferencer
+from src.disco.core.latent_diffusion.strategy.arbitrary_inpainting import ArbitraryInpainting
+from src.disco.viz.decoded_img import plot_decoded_image, plot_inpainting_triplet
 
 class ArbitraryInpaintingInferer(LatentDiffusionInferencer):
     
@@ -27,7 +26,7 @@ class ArbitraryInpaintingInferer(LatentDiffusionInferencer):
         device: torch.device | str | None = None,
         dtype: torch.dtype | None = None,
     ) -> None:
-        if getattr(strategy, "strategy_name", None) != self.REQUIRED_STRATEGY_NAME:
+        if getattr(strategy, "name", None) != self.REQUIRED_STRATEGY_NAME:
             raise TypeError(
                 f"ArbitraryInpaintingInferer requires strategy_name='{self.REQUIRED_STRATEGY_NAME}', "
                 f"got {getattr(strategy, 'strategy_name', None)!r}"
@@ -208,3 +207,52 @@ class ArbitraryInpaintingInferer(LatentDiffusionInferencer):
                 "mask_numpy": mask[0, 0].detach().cpu().numpy(),
             },
         )
+
+
+    def run(
+        self,
+        image_dir: str | Path,
+        mask_dir: str | Path,
+        *,
+        num_steps: int = 200,
+        show_plot: bool = False,
+        plot_title: str | None = None,
+        plot_fig_size: tuple[int, int] | None = None,
+    ) -> list["InferenceResult"]:
+
+        image_dir = Path(image_dir)
+        mask_dir = Path(mask_dir)
+
+        if not image_dir.exists() or not image_dir.is_dir():
+            raise FileNotFoundError(f"image_dir is not a directory: {image_dir}")
+
+        if not mask_dir.exists() or not mask_dir.is_dir():
+            raise FileNotFoundError(f"mask_dir is not a directory: {mask_dir}")
+
+        results: list[InferenceResult] = []
+
+        image_files = sorted(
+            p for p in image_dir.iterdir()
+            if p.is_file() and p.suffix.lower() in [".png", ".jpg", ".jpeg"]
+        )
+
+        for img_path in image_files:
+
+            mask_path = mask_dir / img_path.name
+
+            if not mask_path.exists():
+                print(f"[Warning] No mask found for {img_path.name}, skipping.")
+                continue
+
+            res = self.run_one(
+                image_path=img_path,
+                mask_path=mask_path,
+                num_steps=num_steps,
+                show_plot=show_plot,
+                plot_title=plot_title,
+                plot_fig_size=plot_fig_size,
+            )
+
+            results.append(res)
+
+        return results

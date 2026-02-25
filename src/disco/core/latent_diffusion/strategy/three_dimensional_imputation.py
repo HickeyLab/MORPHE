@@ -12,7 +12,7 @@ from src.disco.core.latent_diffusion.strategy.base import DiffusionStrategy
 
 @dataclass(frozen=True)
 class ThreeDimensionalImputation(DiffusionStrategy):
-    name: str = "three_dimensional_imputation"
+    name: str = "3dimputation"
     three_dimensional_cond_encoder: bool = True
     patience: int = 5
     decay_enabled: bool = False

@@ -7,10 +7,9 @@ import torch
 from PIL import Image
 from torchvision import transforms
 from tqdm import tqdm
-from disco.core.latent_diffusion.artifact import LatentDiffuserArtifact
-
-from disco.core.latent_diffusion.infer.base import InferenceResult, LatentDiffusionInferencer
-from disco.core.latent_diffusion.strategy.three_dimensional_imputation import ThreeDimensionalImputation
+from src.disco.core.latent_diffusion.artifact import LatentDiffuserArtifact
+from src.disco.core.latent_diffusion.infer.base import InferenceResult, LatentDiffusionInferencer
+from src.disco.core.latent_diffusion.strategy.three_dimensional_imputation import ThreeDimensionalImputation
 
 
 # -------------------------------------------------
@@ -20,7 +19,7 @@ from disco.core.latent_diffusion.strategy.three_dimensional_imputation import Th
 
 
 class ThreeDimensionalInferer(LatentDiffusionInferencer):
-    REQUIRED_STRATEGY_NAME = "slice3d"
+    REQUIRED_STRATEGY_NAME = "3dimputation"
 
     def __init__(
         self, 
@@ -31,7 +30,7 @@ class ThreeDimensionalInferer(LatentDiffusionInferencer):
         device: torch.device | str | None = None,
         dtype: torch.dtype | None = None,
     ):
-        if getattr(strategy, "strategy_name", None) != self.REQUIRED_STRATEGY_NAME:
+        if getattr(strategy, "name", None) != self.REQUIRED_STRATEGY_NAME:
             raise TypeError(
                 f"ThreeDimensionalInferer requires strategy_name='{self.REQUIRED_STRATEGY_NAME}', "
                 f"got {getattr(strategy, 'strategy_name', None)!r}"
@@ -129,7 +128,7 @@ class ThreeDimensionalInferer(LatentDiffusionInferencer):
             save_png_name=save_png_name,
         )
 
-        # ====== load & preprocess images ======
+        # ====== load & preprocess inpaint_images ======
         img_prev = Image.open(prev_path).convert("RGB")
         img_next = Image.open(next_path).convert("RGB")
 
