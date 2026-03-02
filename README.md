@@ -51,35 +51,84 @@ limitations and challenges with single-cell spatial-omics datasets.
 ```text
 DISCO/
 │
+├── Assets/                         
+├── Baselines/                          # Comparisons
 ├── Embeddings/                         # GCNN & Autoencoder
 │   ├── 01_GCN_classifier.ipynb
 │   ├── 02_Autoencoder.ipynb
 │   └── 03_Interpret_cellmap.ipynb  
 ├── Evaluation/                         # Evaluation Metrics
+│   └── Evaluation.ipynb  
 ├── Finetune/                           # Latent Diffusion Finetune 
-├── Latent_Diffusion_Generator/         # Application Train/Infer (In/Outpainting, 3D, gapfill)
-├── Pixel_Diffusion_Decoder/            # Pixel Diffusion Train and Decode
+│   ├── Fluxfill/
+│   │   ├── Train_Fluxfill.py
+│   │   └── Fluxfill_outpainting.py
+│   └── SD2/
+│       ├── Train_SD2.py
+│       └── SD2_Outpainting.py
+├── Latent_Diffusion_Generator/            # Application training & inference
+│   ├── 3D_Imputation/
+│   │   ├── Train_3D_Imputation.ipynb
+│   │   └── Infer_3D_Imputation.ipynb
+│   ├── Arbitrary_Inpainting/
+│   │   ├── Train_Arbitrary_Inpainting.ipynb
+│   │   └── Infer_Arbitrary_Inpainting.ipynb
+│   └── Outpainting_and_2D_Imputation/
+│       ├── Training/ [NOTE TO SELF: What is in here?]
+│       └── Inference/
+│           ├── Inference_2D_Imputation.ipynb
+│           └── Inference_Outpainting.ipynb
+├── Pixel_Diffusion_Decoder/            # Pixel Diffusion Train and Decode [NOTE TO SELF: IS THIS BASELINE FOLDER?]
 ├── Preprocessing/                      # DISCO Preprocessing Pipeline
 │   ├── 01_Conflict_statistics_and_cleaning.ipynb
 │   ├── 02_Resolution_Reduction.ipynb
-│   └── 03_Embedding_DATAQuality_minimum.ipynb
-├── src/disco/                          # 
+│   └── 03_Embedding_DATAQuality_minimum.ipynb                        
 └── README.md
 ```
 ## Recommended execution order
 
-### Preprocessing Pipeline
+### 1. Preprocessing Pipeline
 
-1. `Preprocessing/01_Conflict_statistics_and_cleaning.ipynb`
-2. `Preprocessing/02_Resolution_Reduction.ipynb`
-3. `Preprocessing/03_Embedding_DATAQuality_minimum.ipynb` 
+1. `Preprocessing/01_Conflict_statistics_and_cleaning.ipynb` - Identify conflict statistics for Spatial omics cell map
+2. `Preprocessing/02_Resolution_Reduction.ipynb` - Reduce resolution using dimensions and conflict cleaned data.
 
-### Embedding pipeline
-1. `Embeddings/01_GCN_classifier.ipynb` — learn neighborhood-informed representations  
-2. `Embeddings/02_Autoencoder.ipynb` — compress representations into latent space  
-3. `Embeddings/03_Interpret_cellmap.ipynb` — decode end-to-end outputs back to original cell identities
+### 2. Embedding Pipeline
+1. `Embeddings/01_GCN_classifier.ipynb` — learn spatial and marker informed probabilities  
+2. `Embeddings/02_Autoencoder.ipynb` — compress probabilities to three-channel representation of pixel intensities
 
+### 3. Latent Diffusion Generator (Application)
 
+#### Arbitrary Inpainting
+1. `Latent_Diffusion_Generator/Arbitrary_Inpainting/Train_Arbitrary_Inpainting.ipynb`
+2. `Latent_Diffusion_Generator/Arbitrary_Inpainting/Infer_Arbitrary_Inpainting.ipynb`
 
-### Baselines
-- `baselines/MLP_classifier.ipynb` — legacy baseline classifier (not part of the final DISCO pipeline)
+#### 2D Imputation & Outpainting
+- `Latent_Diffusion_Generator/Outpainting_and_2D_Imputation/Inference/Inference_2D_Imputation.ipynb`
+- `Latent_Diffusion_Generator/Outpainting_and_2D_Imputation/Inference/Inference_Outpainting.ipynb`
+
+#### 3D Imputation
+1. `Latent_Diffusion_Generator/3D_Imputation/Train_3D_Imputation.ipynb`
+2. `Latent_Diffusion_Generator/3D_Imputation/Infer_3D_Imputation.ipynb`
+
+### 4. Decoding
+3. `Embeddings/03_Interpret_cellmap.ipynb` — decode images back to original cell identities
+
+### 5. Evaluation
+`Evaluation/Evaluation.ipynb`
+- RGB Centroid Distance Score  
+- Neighbor KMeans Composition Matching Score  
+- Cell Density Score  
+- Spatial Structure Score  
+- Cell Type Distribution Score  
+
+#### Optional 
+Baseline/Comparison Models
+
+- `Baselines/MLP_classifier.ipynb`  
+  Legacy baseline classifier for comparison (not part of the final DISCO pipeline)
+
+Fine-tune Latent Diffusion (FluxFill and StableDiffusion2):
+
+- `Finetune/Fluxfill/Train_Fluxfill.py`
+- `Finetune/SD2/Train_SD2.py`
+
