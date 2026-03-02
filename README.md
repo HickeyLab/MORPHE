@@ -42,7 +42,9 @@ MORPHE represents a new class of tissue generation algorithms that will help sol
 limitations and challenges with single-cell spatial-omics datasets.
 
 ### MORPHE Usecases
-https://github.com/user-attachments/assets/f80406a2-3ffc-4cbd-93fd-7968fe4b1885
+https://github.com/user-attachments/assets/ed0b6b30-8f22-45ec-9870-14a5500f5c42
+
+https://github.com/user-attachments/assets/baa6828b-c4ee-4a8e-8b2b-0056770f02d0
 
 
 ## Repository Structure (Python Notebooks)
