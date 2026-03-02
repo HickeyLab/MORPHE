@@ -135,8 +135,7 @@ Input: Generated image
 #### Optional 
 Baseline/Comparison Models
 
-- `Baselines/MLP_classifier.ipynb`  
-  Legacy baseline classifier for comparison (not part of the final DISCO pipeline)
+- `Baselines/MLP_classifier.ipynb` - baseline classifier for comparison to GCNN
 
 Fine-tune Latent Diffusion (FluxFill and StableDiffusion2):
 
