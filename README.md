@@ -52,7 +52,7 @@ limitations and challenges with single-cell spatial-omics datasets.
 DISCO/
 │
 ├── Assets/                         
-├── Baselines/                              # MLP Classifier, an supplemental method for GCN Classifier
+├── Alternatives/                              # MLP Classifier, an supplemental method for GCN Classifier
 ├── Embeddings/                             # GCNN Classifier & Autoencoder
 │   ├── 01_GCN_classifier.ipynb
 │   ├── 02_Autoencoder.ipynb
@@ -74,8 +74,8 @@ DISCO/
 │   │   ├── Train_Arbitrary_Inpainting.ipynb
 │   │   └── Infer_Arbitrary_Inpainting.ipynb
 │   └── Outpainting_and_2D_Imputation/
-│       ├── Training/ 
-│       └── Inference/
+│       ├── Train/                          # Library-Style Code Folder for training the model
+│       └── Inferences/
 │           ├── Inference_2D_Imputation.ipynb
 │           └── Inference_Outpainting.ipynb
 ├── Pixel_Diffusion_Decoder/                # Pixel Diffusion, used to refine the output of Latent_Diffusion_Generator (whatever the usecase is)
