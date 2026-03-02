@@ -85,30 +85,34 @@ DISCO/
 ```
 ## Recommended execution order
 
-### 1. Preprocessing Pipeline
-Input: Segmented and annotated spatial omics cell maps (Columns must include x,y coordinate, cell type, molecular expression vector).
-1. `Preprocessing/01_Conflict_statistics_and_cleaning.ipynb` - Identify conflict statistics for Spatial omics cell map
-2. `Preprocessing/02_Resolution_Reduction.ipynb` - Reduce resolution using dimensions and conflict cleaned data.
+### 1. Preprocessing Pipeline (Optional)
 
+Input: Segmented and annotated spatial omics cell maps (Columns must include x,y coordinate, cell type, molecular expression vector).
+
+1. `Preprocessing/resolution_reduction.ipynb` - Reduce resolution using dimensions and conflict cleaned data.
+   
 Output: Resolution reduced spatial omics cell maps.
 
 ### 2. Embedding Pipeline
 
 Input: Processed spatial omics cell maps.
+
 1. `Embeddings/01_GCN_classifier.ipynb` — Output spatial and marker informed probabilities.
 2. `Embeddings/02_Autoencoder.ipynb` — compress probabilities to three-channel representation of pixel intensities
 
 Output: Embedded image for each cell map.
 
-### 3. Latent Diffusion Generator (Application)
+### 3. Latent Diffusion Generator. Choose one of the usecases for training & inference here: 1. Arbitrary Inpainting 2. 2D Imputation & Outpainting (share one training folder) 3. 3D Imputation.
 
-Input: Split images into training and test (inference) set.
+Input: Split images (.pngs) into training and val set.
 
 #### Arbitrary Inpainting
 1. `Latent_Diffusion_Generator/Arbitrary_Inpainting/Train_Arbitrary_Inpainting.ipynb`
 2. `Latent_Diffusion_Generator/Arbitrary_Inpainting/Infer_Arbitrary_Inpainting.ipynb`
 
 #### 2D Imputation & Outpainting
+1. `Latent_Diffusion_Generator/Outpainting_and_2D_Imputation/Train', use this library-style folder for training
+2. Inference, choose one of them based on your task:
 - `Latent_Diffusion_Generator/Outpainting_and_2D_Imputation/Inference/Inference_2D_Imputation.ipynb`
 - `Latent_Diffusion_Generator/Outpainting_and_2D_Imputation/Inference/Inference_Outpainting.ipynb`
 
@@ -116,12 +120,27 @@ Input: Split images into training and test (inference) set.
 1. `Latent_Diffusion_Generator/3D_Imputation/Train_3D_Imputation.ipynb`
 2. `Latent_Diffusion_Generator/3D_Imputation/Infer_3D_Imputation.ipynb`
 
-### 4. Decoding
-Input: Generated image
+Output: Raw Latent feature (".pt" files, shape: 4×64×64) for the refining module.
 
-3. `Embeddings/03_Interpret_cellmap.ipynb` — decode from images back into original cell identities creating a new spatial omics cell map.
+### 4. Refining. Refine the output from Latent Diffusion Generator (whichever the usecase is).
 
-### 5. Evaluation
+Input: Raw Latent feature (".pt" files, shape: 4×64×64)
+
+1. `Pixel_Diffusion_Decoder/Dataset_Construct_for_Decoder.ipynb` for constructing the dataset for the refining diffusion model. (Note that you need put some ".png" files (shape: 3×512×512) in the "root_dir" for pixel_diffusion to learn reconstructing high-resolution images from latent feature)
+2. `Pixel_Diffusion_Decoder/train_decoder.py` for training.
+3. `Pixel_Diffusion_Decoder/Infer_Decoder.ipynb` for inference.
+
+Ouput: High-Resolution Images (".png" files, shape: 3×512×512)
+
+### 5. Decoding
+
+Input: High-Resolution Images (".png" files, shape: 3×512×512)
+
+1. `Embeddings/03_Interpret_cellmap.ipynb` — decode from images back into original cell identities creating a new spatial omics cell map.
+   
+Output: 1×512×512 '.pt' files, each pixel is annotated with a type of cell.
+ 
+### 6. Evaluation
 `Evaluation/Evaluation.ipynb`
 
 - RGB Centroid Distance Score  
@@ -131,11 +150,11 @@ Input: Generated image
 - Cell Type Distribution Score  
 
 #### Optional 
-Baseline/Comparison Models
+Alternative
 
-- `Baselines/MLP_classifier.ipynb` - baseline classifier for comparison to GCNN
+- `Alternative/MLP_classifier.ipynb` - baseline classifier for comparison to GCNN
 
-Fine-tune Latent Diffusion (FluxFill and StableDiffusion2):
+Fine-tune Existign Image Generative Models (FluxFill and StableDiffusion2):
 
 - `Finetune/Fluxfill/Train_Fluxfill.py`
 - `Finetune/SD2/Train_SD2.py`
