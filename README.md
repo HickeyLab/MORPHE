@@ -132,3 +132,8 @@ Fine-tune Latent Diffusion (FluxFill and StableDiffusion2):
 - `Finetune/Fluxfill/Train_Fluxfill.py`
 - `Finetune/SD2/Train_SD2.py`
 
+#### Affiliations
+<p align="left">
+  <img src="Assets/logo.png" width="110" style="margin-right:-10px;">
+  <img src="Assets/logo2.png" width="175">
+</p>
