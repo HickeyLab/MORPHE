@@ -52,21 +52,21 @@ limitations and challenges with single-cell spatial-omics datasets.
 DISCO/
 │
 ├── Assets/                         
-├── Baselines/                          # Comparisons
-├── Embeddings/                         # GCNN & Autoencoder
+├── Baselines/                              # Comparisons
+├── Embeddings/                             # GCNN & Autoencoder
 │   ├── 01_GCN_classifier.ipynb
 │   ├── 02_Autoencoder.ipynb
 │   └── 03_Interpret_cellmap.ipynb  
-├── Evaluation/                         # Evaluation Metrics
+├── Evaluation/                             # Evaluation Metrics
 │   └── Evaluation.ipynb  
-├── Finetune/                           # Latent Diffusion Finetune 
+├── Finetune/                               # Latent Diffusion Finetune 
 │   ├── Fluxfill/
 │   │   ├── Train_Fluxfill.py
 │   │   └── Fluxfill_outpainting.py
 │   └── SD2/
 │       ├── Train_SD2.py
 │       └── SD2_Outpainting.py
-├── Latent_Diffusion_Generator/            # Application training & inference
+├── Latent_Diffusion_Generator/             # Application training & inference
 │   ├── 3D_Imputation/
 │   │   ├── Train_3D_Imputation.ipynb
 │   │   └── Infer_3D_Imputation.ipynb
@@ -78,8 +78,8 @@ DISCO/
 │       └── Inference/
 │           ├── Inference_2D_Imputation.ipynb
 │           └── Inference_Outpainting.ipynb
-├── Pixel_Diffusion_Decoder/            # Pixel Diffusion Train and Decode [NOTE TO SELF: IS THIS BASELINE FOLDER?]
-├── Preprocessing/                      # DISCO Preprocessing Pipeline
+├── Pixel_Diffusion_Decoder/                # Pixel Diffusion Train and Decode [NOTE TO SELF: IS THIS BASELINE FOLDER?]
+├── Preprocessing/                          # Preprocessing Pipeline
 │   ├── 01_Conflict_statistics_and_cleaning.ipynb
 │   ├── 02_Resolution_Reduction.ipynb
 │   └── 03_Embedding_DATAQuality_minimum.ipynb                        
@@ -88,15 +88,23 @@ DISCO/
 ## Recommended execution order
 
 ### 1. Preprocessing Pipeline
-
+Input: Segmented and annotated spatial omics cell maps (Columns must include x,y coordinate, cell type, molecular expression vector).
 1. `Preprocessing/01_Conflict_statistics_and_cleaning.ipynb` - Identify conflict statistics for Spatial omics cell map
 2. `Preprocessing/02_Resolution_Reduction.ipynb` - Reduce resolution using dimensions and conflict cleaned data.
 
+Output: Resolution reduced spatial omics cell maps.
+
 ### 2. Embedding Pipeline
-1. `Embeddings/01_GCN_classifier.ipynb` — learn spatial and marker informed probabilities  
+
+Input: Processed spatial omics cell maps.
+1. `Embeddings/01_GCN_classifier.ipynb` — Output spatial and marker informed probabilities.
 2. `Embeddings/02_Autoencoder.ipynb` — compress probabilities to three-channel representation of pixel intensities
 
+Output: Embedded image for each cell map.
+
 ### 3. Latent Diffusion Generator (Application)
+
+Input: Split images into training and test (inference) set.
 
 #### Arbitrary Inpainting
 1. `Latent_Diffusion_Generator/Arbitrary_Inpainting/Train_Arbitrary_Inpainting.ipynb`
@@ -111,10 +119,13 @@ DISCO/
 2. `Latent_Diffusion_Generator/3D_Imputation/Infer_3D_Imputation.ipynb`
 
 ### 4. Decoding
-3. `Embeddings/03_Interpret_cellmap.ipynb` — decode images back to original cell identities
+Input: Generated image
+
+3. `Embeddings/03_Interpret_cellmap.ipynb` — decode from images back into original cell identities creating a new spatial omics cell map.
 
 ### 5. Evaluation
 `Evaluation/Evaluation.ipynb`
+
 - RGB Centroid Distance Score  
 - Neighbor KMeans Composition Matching Score  
 - Cell Density Score  
