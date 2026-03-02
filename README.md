@@ -41,7 +41,8 @@ tation, connecting separated tissue regions into a single contiguous sample in b
 MORPHE represents a new class of tissue generation algorithms that will help solve current
 limitations and challenges with single-cell spatial-omics datasets.
 
-
+### MORPHE Usecases
+https://github.com/user-attachments/assets/f80406a2-3ffc-4cbd-93fd-7968fe4b1885
 
 
 ## Repository Structure (Python Notebooks)
