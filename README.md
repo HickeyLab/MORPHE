@@ -34,8 +34,7 @@ discrete cell identities and their spatial relationships into a continuous RGB-l
 compatible with diffusion modeling. This representational bridge enables spatial cellular maps
 to leverage large pre-trained image-generative models while preserving biological interpretabil-
 ity upon decoding. By modeling cells as the fundamental units of generation and learning how
-their identities and spatial relationships collectively give rise to large-scale tissue structure, MOR-
-PHOS enables generation and reconstruction of tissue architecture at single-cell resolution. We
+their identities and spatial relationships collectively give rise to large-scale tissue structure, MORPHE enables generation and reconstruction of tissue architecture at single-cell resolution. We
 applied the method across large-scale single-cell proteomic datasets from the intestine and single-
 cell transcriptomic datasets from the brain, showing computational scalability acrosss millions of
 cells. We used MORPHE on these datasets to outpaint beyond experimentally restricted fields
