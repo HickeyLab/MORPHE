@@ -95,7 +95,7 @@ DISCO/
 
 Input: Segmented and annotated spatial omics cell maps (Columns must include x,y coordinate, cell type, molecular expression vector).
 
-1. `Preprocessing/resolution_reduction.ipynb` - Using onflict cleaned data, reduce dimensions.
+1. `Preprocessing/resolution_reduction.ipynb` - Reduce dimensions.
    
 Output: Resolution reduced spatial omics cell maps.
 
@@ -104,7 +104,7 @@ Output: Resolution reduced spatial omics cell maps.
 Input: Processed spatial omics cell maps.
 
 1. `Embeddings/01_GCN_classifier.ipynb` — Output spatial and marker informed probabilities.
-2. `Embeddings/02_Autoencoder.ipynb` — compress probabilities to three-channel representation of pixel intensities
+2. `Embeddings/02_Autoencoder.ipynb` — Compress probabilities to three-channel representation of pixel intensities.
 
 Output: Embedded image for each cell map.
 
@@ -121,8 +121,8 @@ Choose one of the usecases for training & inference here:
 #### 2. 2D Imputation & Outpainting
 1. `Latent_Diffusion_Generator/Outpainting_and_2D_Imputation/Train/` - Training
 2. Inference, choose one of them based on your task:
-- `Latent_Diffusion_Generator/Outpainting_and_2D_Imputation/Inference/Inference_2D_Imputation.ipynb` - 2D imputation/gap filling between two regions
-- `Latent_Diffusion_Generator/Outpainting_and_2D_Imputation/Inference/Inference_Outpainting.ipynb` - Outpainting from 1 region
+- `Latent_Diffusion_Generator/Outpainting_and_2D_Imputation/Inference/Inference_2D_Imputation.ipynb` - 2D imputation/gap-filling between two regions.
+- `Latent_Diffusion_Generator/Outpainting_and_2D_Imputation/Inference/Inference_Outpainting.ipynb` - Outpaint from one region.
 
 #### 3. 3D Imputation
 1. `Latent_Diffusion_Generator/3D_Imputation/Train_3D_Imputation.ipynb`
