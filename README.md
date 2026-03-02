@@ -26,8 +26,7 @@ James Sohigian², Maria Brbić³, John W. Hickey¹\*
 Spatially resolved omics technologies reveal tissue organization at single-cell resolution but remain
 limited by the cost of the assays, incomplete spatial coverage, 2D-only imaging, and experi-
 mental artifacts. These factors motivate the need for in silico methods that can reconstruct or
-extend tissue context beyond what current spatial measurements provide. We present MORPHE (MOdeling of stRuctured sPatial High-dimensional Embeddings),
-an AI framework that learns to synthesize biologically faithful tissue architecture directly from
+extend tissue context beyond what current spatial measurements provide. We present MORPHE (MOdeling of stRuctured sPatial High-dimensional Embeddings), an AI framework that learns to synthesize biologically faithful tissue architecture directly from
 spatial-omics data. MORPHE introduces a graph-informed probabilistic embedding that maps
 discrete cell identities and their spatial relationships into a continuous RGB-like latent space
 compatible with diffusion modeling. This representational bridge enables spatial cellular maps
