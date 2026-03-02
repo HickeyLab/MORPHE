@@ -27,7 +27,7 @@ Spatially resolved omics technologies reveal tissue organization at single-cell 
 limited by the cost of the assays, incomplete spatial coverage, 2D-only imaging, and experi-
 mental artifacts. These factors motivate the need for in silico methods that can reconstruct or
 extend tissue context beyond what current spatial measurements provide. We present MOR-
-PHOS (Modeling Organized Representations of Probabilistic Hierarchical Organization in Space),
+PHE (MOdeling of stRuctured sPatial High-dimensional Embeddings),
 an AI framework that learns to synthesize biologically faithful tissue architecture directly from
 spatial-omics data. MORPHE introduces a graph-informed probabilistic embedding that maps
 discrete cell identities and their spatial relationships into a continuous RGB-like latent space
@@ -52,21 +52,21 @@ limitations and challenges with single-cell spatial-omics datasets.
 DISCO/
 │
 ├── Assets/                         
-├── Baselines/                              # Comparisons
-├── Embeddings/                             # GCNN & Autoencoder
+├── Baselines/                              # MLP Classifier, an supplemental method for GCN Classifier
+├── Embeddings/                             # GCNN Classifier & Autoencoder
 │   ├── 01_GCN_classifier.ipynb
 │   ├── 02_Autoencoder.ipynb
 │   └── 03_Interpret_cellmap.ipynb  
 ├── Evaluation/                             # Evaluation Metrics
 │   └── Evaluation.ipynb  
-├── Finetune/                               # Latent Diffusion Finetune 
+├── Finetune/                               # Comparisons with Existing Image-Generative Models
 │   ├── Fluxfill/
 │   │   ├── Train_Fluxfill.py
 │   │   └── Fluxfill_outpainting.py
-│   └── SD2/
+│   └── SD2/ 
 │       ├── Train_SD2.py
 │       └── SD2_Outpainting.py
-├── Latent_Diffusion_Generator/             # Application training & inference
+├── Latent_Diffusion_Generator/             # Code of training & inference for all 4 usecases
 │   ├── 3D_Imputation/
 │   │   ├── Train_3D_Imputation.ipynb
 │   │   └── Infer_3D_Imputation.ipynb
@@ -74,15 +74,14 @@ DISCO/
 │   │   ├── Train_Arbitrary_Inpainting.ipynb
 │   │   └── Infer_Arbitrary_Inpainting.ipynb
 │   └── Outpainting_and_2D_Imputation/
-│       ├── Training/ [NOTE TO SELF: What is in here?]
+│       ├── Training/ 
 │       └── Inference/
 │           ├── Inference_2D_Imputation.ipynb
 │           └── Inference_Outpainting.ipynb
-├── Pixel_Diffusion_Decoder/                # Pixel Diffusion Train and Decode [NOTE TO SELF: IS THIS BASELINE FOLDER?]
+├── Pixel_Diffusion_Decoder/                # Pixel Diffusion, used to refine the output of Latent_Diffusion_Generator (whatever the usecase is)
 ├── Preprocessing/                          # Preprocessing Pipeline
-│   ├── 01_Conflict_statistics_and_cleaning.ipynb
-│   ├── 02_Resolution_Reduction.ipynb
-│   └── 03_Embedding_DATAQuality_minimum.ipynb                        
+│   ├── Resolution_Reduction.ipynb
+│                      
 └── README.md
 ```
 ## Recommended execution order
