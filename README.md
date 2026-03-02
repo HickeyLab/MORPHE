@@ -57,7 +57,7 @@ DISCO/
 │
 ├── Assets/                         
 ├── Alternatives/
-│   └── MLP_classifier.ipynb                   # MLP Classifier, an alternative method for GCN Classifier
+│   └── MLP_classifier.ipynb                # MLP Classifier, an alternative method for GCN Classifier
 ├── Embeddings/                             # GCNN Classifier & Autoencoder
 │   ├── 01_GCN_classifier.ipynb
 │   ├── 02_Autoencoder.ipynb
@@ -95,7 +95,7 @@ DISCO/
 
 Input: Segmented and annotated spatial omics cell maps (Columns must include x,y coordinate, cell type, molecular expression vector).
 
-1. `Preprocessing/resolution_reduction.ipynb` - Reduce resolution using dimensions and conflict cleaned data.
+1. `Preprocessing/resolution_reduction.ipynb` - Using onflict cleaned data, reduce dimensions.
    
 Output: Resolution reduced spatial omics cell maps.
 
@@ -108,33 +108,37 @@ Input: Processed spatial omics cell maps.
 
 Output: Embedded image for each cell map.
 
-### 3. Latent Diffusion Generator. Choose one of the usecases for training & inference here: 1. Arbitrary Inpainting 2. 2D Imputation & Outpainting (share one training folder) 3. 3D Imputation.
+### 3. Latent Diffusion Generator. 
 
 Input: Split images (.pngs) into training and val set.
 
-#### Arbitrary Inpainting
+Choose one of the usecases for training & inference here:
+
+#### 1. Arbitrary Inpainting
 1. `Latent_Diffusion_Generator/Arbitrary_Inpainting/Train_Arbitrary_Inpainting.ipynb`
 2. `Latent_Diffusion_Generator/Arbitrary_Inpainting/Infer_Arbitrary_Inpainting.ipynb`
 
-#### 2D Imputation & Outpainting
-1. `Latent_Diffusion_Generator/Outpainting_and_2D_Imputation/Train', use this library-style folder for training
+#### 2. 2D Imputation & Outpainting
+1. `Latent_Diffusion_Generator/Outpainting_and_2D_Imputation/Train/` - Training
 2. Inference, choose one of them based on your task:
-- `Latent_Diffusion_Generator/Outpainting_and_2D_Imputation/Inference/Inference_2D_Imputation.ipynb`
-- `Latent_Diffusion_Generator/Outpainting_and_2D_Imputation/Inference/Inference_Outpainting.ipynb`
+- `Latent_Diffusion_Generator/Outpainting_and_2D_Imputation/Inference/Inference_2D_Imputation.ipynb` - 2D imputation/gap filling between two regions
+- `Latent_Diffusion_Generator/Outpainting_and_2D_Imputation/Inference/Inference_Outpainting.ipynb` - Outpainting from 1 region
 
-#### 3D Imputation
+#### 3. 3D Imputation
 1. `Latent_Diffusion_Generator/3D_Imputation/Train_3D_Imputation.ipynb`
 2. `Latent_Diffusion_Generator/3D_Imputation/Infer_3D_Imputation.ipynb`
 
 Output: Raw Latent feature (".pt" files, shape: 4×64×64) for the refining module.
 
-### 4. Refining. Refine the output from Latent Diffusion Generator (whichever the usecase is).
+### 4. Refining. 
 
 Input: Raw Latent feature (".pt" files, shape: 4×64×64)
 
+Refine the output from Latent Diffusion Generator (for all the usecases).
+
 1. `Pixel_Diffusion_Decoder/Dataset_Construct_for_Decoder.ipynb` for constructing the dataset for the refining diffusion model. (Note that you need put some ".png" files (shape: 3×512×512) in the "root_dir" for pixel_diffusion to learn reconstructing high-resolution images from latent feature)
-2. `Pixel_Diffusion_Decoder/train_decoder.py` for training.
-3. `Pixel_Diffusion_Decoder/Infer_Decoder.ipynb` for inference.
+2. `Pixel_Diffusion_Decoder/train_decoder.py` - Train
+3. `Pixel_Diffusion_Decoder/Infer_Decoder.ipynb` - Inference
 
 Ouput: High-Resolution Images (".png" files, shape: 3×512×512)
 
@@ -142,7 +146,7 @@ Ouput: High-Resolution Images (".png" files, shape: 3×512×512)
 
 Input: High-Resolution Images (".png" files, shape: 3×512×512)
 
-1. `Embeddings/03_Interpret_cellmap.ipynb` — decode from images back into original cell identities creating a new spatial omics cell map.
+1. `Embeddings/03_Interpret_cellmap.ipynb` — Decode from images back into original cell identities creating a new spatial omics cell map.
    
 Output: 1×512×512 '.pt' files, each pixel is annotated with a type of cell.
  
