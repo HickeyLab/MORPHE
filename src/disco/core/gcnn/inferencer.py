@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 import torch
 from torch_geometric.loader import DataLoader
+from disco.core.gcnn.model import GCNClassifier
 from src.disco.core.gcnn.artifact import GCNNArtifact
 from src.disco.core.gcnn.data import RegionGraphDataset
 from dataclasses import dataclass
@@ -18,9 +19,34 @@ from torch_geometric.loader import DataLoader
 @dataclass(frozen=True)
 class GCNNInferencer:
     artifact: "GCNNArtifact"
-    device: torch.device | str | None = None
+    model: GCNClassifier
+    device: torch.device
     batch_size: int = 1
     shuffle: bool = False
+
+    @classmethod
+    def from_artifact(
+        cls,
+        artifact: "GCNNArtifact",
+        *,
+        device: torch.device | str | None = None,
+        batch_size: int = 1,
+        shuffle: bool = False,
+    ) -> "GCNNInferencer":
+        if device is None:
+            device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        else:
+            device = torch.device(device)
+
+        model = artifact.build_model(device=device)
+
+        return cls(
+            artifact=artifact, 
+            model=model, 
+            device=device, 
+            batch_size=batch_size, 
+            shuffle=shuffle
+        )
 
     def predict_proba(
         self,
@@ -32,7 +58,7 @@ class GCNNInferencer:
         self._validate_inputs(df=df, output_file_path=output_file_path, save=save)
 
         # Load and build model
-        model = self.artifact.build_model(device=self.device)
+        model = self.model
         model_device = next(model.parameters()).device
 
         dataset = RegionGraphDataset(
@@ -99,4 +125,3 @@ class GCNNInferencer:
             raise ValueError("df is empty.")
         if save and not output_file_path:
             raise ValueError("Output file path empty.")
-    

@@ -15,7 +15,7 @@ from src.disco.core.latent_diffusion.strategy.outpaint import OutpaintDiffusion
 from src.disco.viz.decoded_img import plot_decoded_image
 
 
-Direction = Literal["right", "left", "down", "up"]
+DIRECTION = Literal["right", "left", "down", "up"]
 
 
 class OutpaintInferencer(LatentDiffusionInferencer):
@@ -43,7 +43,7 @@ class OutpaintInferencer(LatentDiffusionInferencer):
             dtype=dtype,
         )
 
-        self.directions: list[Direction] = ["right", "left", "down", "up"]
+        self.directions: list[DIRECTION] = ["right", "left", "down", "up"]
 
         self.transform = transforms.Compose(
             [
@@ -61,7 +61,7 @@ class OutpaintInferencer(LatentDiffusionInferencer):
         steps: int,
         iterations: int,
         crop_ratio: float,
-        direction: Direction,
+        direction: DIRECTION,
         plot_fig_size: tuple[int, int] | None,
     ) -> tuple[Path, Path]:
         if original_path is None or save_dir is None:
@@ -202,7 +202,7 @@ class OutpaintInferencer(LatentDiffusionInferencer):
         steps: int = 200,
         crop_ratio: float = 0.97,
         iterations: int = 10,
-        direction: Direction = "right",
+        direction: DIRECTION = "right",
         show_plot: bool = False,
         plot_title: str | None = None,
         plot_fig_size: tuple[int, int] | None = None,
@@ -373,7 +373,7 @@ class OutpaintInferencer(LatentDiffusionInferencer):
         steps: int = 200,
         crop_ratio: float = 0.97,
         iterations: int = 10,
-        direction: Direction = "right",
+        direction: DIRECTION = "right",
         show_plot: bool = False,
         plot_title: str | None = None,
         plot_fig_size: tuple[int, int] | None = None,

@@ -13,7 +13,7 @@ from src.disco.core.latent_diffusion.infer.base import InferenceResult, LatentDi
 from src.disco.core.latent_diffusion.strategy.arbitrary_inpainting import ArbitraryInpainting
 from src.disco.viz.decoded_img import plot_decoded_image, plot_inpainting_triplet
 
-class ArbitraryInpaintingInferer(LatentDiffusionInferencer):
+class ArbitraryInpaintingInferencer(LatentDiffusionInferencer):
     
     REQUIRED_STRATEGY_NAME = "arbitrary_inpainting"
 

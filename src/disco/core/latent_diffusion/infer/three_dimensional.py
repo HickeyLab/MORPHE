@@ -12,12 +12,6 @@ from src.disco.core.latent_diffusion.infer.base import InferenceResult, LatentDi
 from src.disco.core.latent_diffusion.strategy.three_dimensional_imputation import ThreeDimensionalImputation
 
 
-# -------------------------------------------------
-# Utilities
-# -------------------------------------------------
-
-
-
 class ThreeDimensionalInferer(LatentDiffusionInferencer):
     REQUIRED_STRATEGY_NAME = "3dimputation"
 

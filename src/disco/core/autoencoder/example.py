@@ -4,7 +4,7 @@ import torch
 
 from src.disco.core.autoencoder.fit import train_autoencoder
 from src.disco.core.autoencoder.artifact import AutoencoderArtifact
-from src.disco.core.autoencoder.encoding import AutoencoderRGBInferencer
+from disco.core.autoencoder.inferencer import AutoencoderRGBInferencer
 
 def build_fake_dataset(
     num_samples: int = 10000,

@@ -1,11 +1,14 @@
 from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any, Optional, Type, TypeVar
 
 import torch
 from src.disco.core.latent_diffusion.artifact import LatentDiffuserArtifact, LatentDiffusionRuntime
 from src.disco.core.latent_diffusion.strategy.base import DiffusionStrategy
+
+
+T = TypeVar("T", bound="LatentDiffusionInferencer")
 
 @dataclass(frozen=True)
 class InferenceResult:
@@ -40,6 +43,28 @@ class LatentDiffusionInferencer(ABC):
         self.cond_proj = rt.cond_proj
         self.scaling_factor = rt.scaling_factor
         self.device = device
+        
+    @classmethod
+    def from_artifact(
+        cls: Type[T],
+        artifact: LatentDiffuserArtifact,
+        *,
+        strategy: DiffusionStrategy,
+        pretrained_path: str = "runwayml/stable-diffusion-v1-5",
+        device: torch.device | str | None = None,
+        dtype: torch.dtype | None = None,
+    ) -> T:
+        if device is not None:
+            device = torch.device(device)
+
+        return cls(
+            artifact=artifact,
+            strategy=strategy,
+            pretrained_path=pretrained_path,
+            device=device,
+            dtype=dtype,
+        )
+
 
     @torch.no_grad()
     def __call__(self, *args: Any, **kwargs: Any) -> InferenceResult:
