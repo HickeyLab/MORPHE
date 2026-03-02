@@ -46,6 +46,10 @@ https://github.com/user-attachments/assets/ed0b6b30-8f22-45ec-9870-14a5500f5c42
 
 https://github.com/user-attachments/assets/baa6828b-c4ee-4a8e-8b2b-0056770f02d0
 
+https://github.com/user-attachments/assets/9fc56d1e-ecb8-483a-b31c-fe9e64de1f33
+
+https://github.com/user-attachments/assets/90db14a2-d6b0-4343-8a28-93e19e13c685
+
 
 ## Repository Structure (Python Notebooks)
 ```text
