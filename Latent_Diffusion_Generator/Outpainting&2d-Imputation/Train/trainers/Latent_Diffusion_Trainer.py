@@ -18,8 +18,8 @@ class LatentTrainer:
     def __init__(self, pretrained="runwayml/stable-diffusion-v1-5"):
         self.accelerator = Accelerator(mixed_precision="fp16")
 
-        train = Stage1Dataset("train")
-        val = Stage1Dataset("val")
+        train = Stage1Dataset("train_data")
+        val = Stage1Dataset("val_data")
 
         self.train_loader = DataLoader(train, batch_size=16, shuffle=True)
         self.val_loader = DataLoader(val, batch_size=4)
