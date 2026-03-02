@@ -1,7 +1,7 @@
-# MORPHOS
+# MORPHE
 
 ## Overview
-*MORPHOS: Bridging Image Generation and Spatial Omics
+*MORPHE: Bridging Image Generation and Spatial Omics
 for Tissue Synthesis*
 
 **Authors:**  
@@ -16,10 +16,10 @@ James Sohigian², Maria Brbić³, John W. Hickey¹\*
 **Preprint:**  
 [Link to bioRxiv]
 
-### MORPHOS Pipeline
+### MORPHE Pipeline
 
 <p align="center">
-  <img src="Assets/Fig1.png" width="800">
+  <img src="Assets/Fig 1.png" width="800">
 </p>
 
 ### Abstract
@@ -29,7 +29,7 @@ mental artifacts. These factors motivate the need for in silico methods that can
 extend tissue context beyond what current spatial measurements provide. We present MOR-
 PHOS (Modeling Organized Representations of Probabilistic Hierarchical Organization in Space),
 an AI framework that learns to synthesize biologically faithful tissue architecture directly from
-spatial-omics data. MORPHOS introduces a graph-informed probabilistic embedding that maps
+spatial-omics data. MORPHE introduces a graph-informed probabilistic embedding that maps
 discrete cell identities and their spatial relationships into a continuous RGB-like latent space
 compatible with diffusion modeling. This representational bridge enables spatial cellular maps
 to leverage large pre-trained image-generative models while preserving biological interpretabil-
@@ -38,10 +38,10 @@ their identities and spatial relationships collectively give rise to large-scale
 PHOS enables generation and reconstruction of tissue architecture at single-cell resolution. We
 applied the method across large-scale single-cell proteomic datasets from the intestine and single-
 cell transcriptomic datasets from the brain, showing computational scalability acrosss millions of
-cells. We used MORPHOS on these datasets to outpaint beyond experimentally restricted fields
+cells. We used MORPHE on these datasets to outpaint beyond experimentally restricted fields
 of view, inpaint missing or experimentally damaged tissue regions, and perform cross-tissue impu-
 tation, connecting separated tissue regions into a single contiguous sample in both 2D and 3D.
-MORPHOS represents a new class of tissue generation algorithms that will help solve current
+MORPHE represents a new class of tissue generation algorithms that will help solve current
 limitations and challenges with single-cell spatial-omics datasets.
 
 
