@@ -5,7 +5,7 @@
 for Tissue Synthesis*
 
 **Authors:**  
-Yuan Feng¹, Zachary Robers², Leyla Rasheed², Yang Miao¹, Shuo Wen³,  
+Yuan Feng¹, Zachary Robers², Leyla Rasheed², Yang Miao¹, Shuo Wen³, Kevin Lee², 
 James Sohigian², Maria Brbić³, John W. Hickey¹\*
 
 ¹ Department of Biomedical Engineering, Duke University, Durham, NC 27708, USA  
