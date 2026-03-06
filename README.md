@@ -53,7 +53,7 @@ https://github.com/user-attachments/assets/90db14a2-d6b0-4343-8a28-93e19e13c685
 
 ## Repository Structure (Python Notebooks)
 ```text
-DISCO/
+MORPHE/
 │
 ├── Assets/                         
 ├── Alternatives/
