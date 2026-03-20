@@ -10,6 +10,9 @@ from disco.core.latent_diffusion.train.base import LatentTrainStrategy
 from disco.core.latent_diffusion.train.inpaint import InpaintTrainStrategy
 from disco.core.latent_diffusion.train.outpaint import OutpaintTrainStrategy
 from disco.core.latent_diffusion.train.three_dim import ThreeDimImputationTrainStrategy
+from disco.core.pixel_diffusion.precompute.inpaint import InpaintPrecomputeStrategy
+from disco.core.pixel_diffusion.precompute.outpaint import OutpaintPrecomputeStrategy
+from disco.core.pixel_diffusion.precompute.three_dim import ThreeDimImputationPrecomputeStrategy
 
 
 @dataclass(frozen=True)
@@ -34,4 +37,11 @@ LATENT_TRAIN_STRATEGY_REGISTRY: dict[InferenceMode, type[LatentTrainStrategy]] =
     InferenceMode.GAPFILL: OutpaintTrainStrategy,
     InferenceMode.OUTPAINTING: OutpaintTrainStrategy,
     InferenceMode.THREE_DIMENSIONAL_IMPUTATION: ThreeDimImputationTrainStrategy,
+}
+
+PRECOMPUTE_STRATEGY_REGISTRY = {
+    InferenceMode.INPAINTING: InpaintPrecomputeStrategy,
+    InferenceMode.GAPFILL: OutpaintPrecomputeStrategy,
+    InferenceMode.OUTPAINTING: OutpaintPrecomputeStrategy,
+    InferenceMode.THREE_DIMENSIONAL_IMPUTATION: ThreeDimImputationPrecomputeStrategy,
 }

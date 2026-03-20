@@ -1,35 +1,49 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Generic, Literal, TypeVar
 
 import torch
 from torch.utils.data import Dataset
 
-@dataclass
-class PixelPrecomputeStrategy(ABC):
+
+TDataset = TypeVar("TDataset", bound=Dataset)
+TBatch = TypeVar("TBatch")
+TMetadata = TypeVar("TMetadata", bound=dict[str, object])
+
+
+class PixelPrecomputeStrategy(ABC, Generic[TDataset, TBatch, TMetadata]):
+    """
+    Abstract interface for pixel-diffusion dataset precomputation strategies.
+
+    Implementations define how train/validation datasets are built, how encoder
+    inputs and target images are extracted from each batch, how samples are
+    named, and what metadata is written for each saved example.
+    """
+
     @abstractmethod
-    def build_dataset(self, root_dir: Path) -> tuple[Dataset, Dataset]:
+    def build_dataset(self, root_dir: Path) -> tuple[TDataset, TDataset]:
         """
-        Return the train and val datasets.
-        """
-        raise NotImplementedError
-        
-    @abstractmethod
-    def get_encoder_input(self, batch: Any) -> torch.Tensor:
-        """
-        Return the batched image tensor that should be fed into the VAE encoder.
-        Shape is typically [B, C, H, W].
+        Build and return the train and validation datasets.
         """
         raise NotImplementedError
 
     @abstractmethod
-    def get_target_img(self, batch: Any) -> torch.Tensor:
+    def get_encoder_input(self, batch: TBatch) -> torch.Tensor:
         """
-        Return the batched ground-truth / training target image tensor to save.
-        Shape is typically [B, C, H, W].
+        Extract the batched image tensor to feed into the VAE encoder.
+
+        The returned tensor is typically shaped `[B, C, H, W]`.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_target_img(self, batch: TBatch) -> torch.Tensor:
+        """
+        Extract the batched target image tensor to save for training.
+
+        The returned tensor is typically shaped `[B, C, H, W]`.
         """
         raise NotImplementedError
 
@@ -37,14 +51,14 @@ class PixelPrecomputeStrategy(ABC):
     def get_sample_name(
         self,
         *,
-        dataset: Any,
-        batch: Any,
+        dataset: TDataset,
+        batch: TBatch,
         batch_idx: int,
         global_idx: int,
-        split_name: str,
+        split_name: Literal["train", "val"],
     ) -> str:
         """
-        Return the filename stem (without .pt) for the sample.
+        Return the filename stem, without the `.pt` suffix, for one sample.
         """
         raise NotImplementedError
 
@@ -52,13 +66,13 @@ class PixelPrecomputeStrategy(ABC):
     def get_metadata(
         self,
         *,
-        dataset: Any,
-        batch: Any,
+        dataset: TDataset,
+        batch: TBatch,
         batch_idx: int,
         global_idx: int,
-        split_name: str,
-    ) -> dict[str, Any]:
+        split_name: Literal["train", "val"],
+    ) -> TMetadata:
         """
-        Return any extra metadata to save into the .pt file.
+        Return additional per-sample metadata to include in the saved `.pt` file.
         """
         raise NotImplementedError

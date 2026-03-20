@@ -8,7 +8,7 @@ def build_inpaint_dataset(
         masks_per_image_train: int = 2,
         masks_per_image_val: int = 5,
         img_size: int = 512,
-    ) -> tuple[Dataset, Dataset]:
+    ) -> tuple[InpaintDataset, InpaintDataset]:
 
         train_dir = root_dir / "train"
         val_dir = root_dir / "val"
@@ -32,7 +32,7 @@ def build_outpaint_dataset(
         img_size: int = 512,
         masks_per_image_train: int = 5,
         masks_per_image_val: int = 5,
-    ) -> tuple[Dataset, Dataset]:
+    ) -> tuple[OutpaintDataset, OutpaintDataset]:
 
         if not root_dir:
             raise ValueError("No root_dir provided.")
@@ -47,7 +47,7 @@ def build_outpaint_dataset(
         
 def build_three_dim_dataset(
         root_dir: Path,
-    ) -> tuple[Dataset, Dataset]:
+    ) -> tuple[Slice3DDataset, Slice3DDataset]:
         if not root_dir:
             raise ValueError("No root_dir provided.")
         return (Slice3DDataset(root_dir), Slice3DDataset(root_dir)) 
