@@ -1,4 +1,4 @@
-from typing import Sequence
+from typing import Any, Sequence
 import pandas as pd
 from sklearn.neighbors import NearestNeighbors
 from torch_geometric.data import Dataset, Data
@@ -6,7 +6,6 @@ import torch
 
 
 class RegionGraphDataset(Dataset):
-
     def __init__(
         self,
         df: pd.DataFrame,
@@ -137,7 +136,14 @@ class RegionGraphDataset(Dataset):
     def __len__(self):
         return len(self.data_list)
 
-    def __getitem__(self, idx):
+    def __getitem__(self, idx: Any) -> Data:
+        if isinstance(idx, torch.Tensor):
+            if idx.ndim != 0:
+                raise TypeError("RegionGraphDataset only supports scalar indexing.")
+            idx = int(idx.item())
+        else:
+            idx = int(idx)
+
         return self.data_list[idx]
 
     # -------------------------------------------------

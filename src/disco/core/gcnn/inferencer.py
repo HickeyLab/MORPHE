@@ -1,37 +1,29 @@
 from __future__ import annotations
+
+from dataclasses import dataclass
 from pathlib import Path
 import numpy as np
 import pandas as pd
+
 import torch
 from torch_geometric.loader import DataLoader
+
 from disco.core.gcnn.model import GCNClassifier
 from src.disco.core.gcnn.artifact import GCNNArtifact
 from src.disco.core.gcnn.data import RegionGraphDataset
-from dataclasses import dataclass
-from pathlib import Path
-from typing import Optional
-
-import numpy as np
-import pandas as pd
-import torch
-from torch_geometric.loader import DataLoader
 
 @dataclass(frozen=True)
 class GCNNInferencer:
-    artifact: "GCNNArtifact"
+    artifact: GCNNArtifact
     model: GCNClassifier
     device: torch.device
-    batch_size: int = 1
-    shuffle: bool = False
 
     @classmethod
     def from_artifact(
         cls,
-        artifact: "GCNNArtifact",
+        artifact: GCNNArtifact,
         *,
         device: torch.device | str | None = None,
-        batch_size: int = 1,
-        shuffle: bool = False,
     ) -> "GCNNInferencer":
         if device is None:
             device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -41,23 +33,27 @@ class GCNNInferencer:
         model = artifact.build_model(device=device)
 
         return cls(
-            artifact=artifact, 
-            model=model, 
-            device=device, 
-            batch_size=batch_size, 
-            shuffle=shuffle
+            artifact=artifact,
+            model=model,
+            device=device,
         )
 
     def predict_proba(
         self,
         df: pd.DataFrame,
         *,
+        batch_size: int = 1,
+        shuffle: bool = False,
         output_file_path: Path | None = None,
         save: bool = False,
     ) -> pd.DataFrame:
-        self._validate_inputs(df=df, output_file_path=output_file_path, save=save)
+        self._validate_inputs(
+            df=df,
+            output_file_path=output_file_path,
+            save=save,
+            batch_size=batch_size,
+        )
 
-        # Load and build model
         model = self.model
         model_device = next(model.parameters()).device
 
@@ -70,9 +66,8 @@ class GCNNInferencer:
             k_neighbors=self.artifact.k_neighbors,
         )
 
-        loader = DataLoader(dataset, batch_size=self.batch_size, shuffle=self.shuffle)
+        loader = DataLoader(dataset, batch_size=batch_size, shuffle=shuffle)
 
-        model.eval()
         all_probs: list[np.ndarray] = []
         all_rows: list[np.ndarray] = []
 
@@ -116,12 +111,15 @@ class GCNNInferencer:
         self,
         *,
         df: pd.DataFrame,
-        output_file_path: Optional[Path],
+        output_file_path: Path | None,
         save: bool,
+        batch_size: int,
     ) -> None:
         if df is None or not isinstance(df, pd.DataFrame):
             raise TypeError("df must be a pandas DataFrame.")
         if df.empty:
             raise ValueError("df is empty.")
-        if save and not output_file_path:
-            raise ValueError("Output file path empty.")
+        if batch_size < 1:
+            raise ValueError("batch_size must be >= 1.")
+        if save and output_file_path is None:
+            raise ValueError("output_file_path is required when save=True.")

@@ -9,10 +9,10 @@ from torch.utils.data import Dataset
 
 
 if TYPE_CHECKING:
-    from src.disco.core.latent_diffusion.diffusion_trainer import DiffusionTrainer
+    from disco.core.latent_diffusion.train.diffusion_trainer import DiffusionTrainer
 
 
-class DiffusionStrategy(ABC):
+class LatentTrainStrategy(ABC):
     """
     Minimal plugin-style strategy.
     Each task implements its own train_step logic.
@@ -21,16 +21,17 @@ class DiffusionStrategy(ABC):
     # -----------------------------------------------------
     # Metadata
     # -----------------------------------------------------
-    name: str = ""
     requires_coord_encoder: bool = False
     requires_bbox_encoder: bool = False
     three_dimensional_cond_encoder: bool = False
 
     train_num_workers: int = 4
     val_num_workers: int = 2
-
+    
+    supports_decay: bool = False
+    decay_enabled: bool = False
+    
     patience: Optional[int] = None
-    decay_enabled: Optional[bool] = None
     lr_decay_every: Optional[int] = None
     lr_decay_factor: Optional[float] = None
 

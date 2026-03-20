@@ -8,7 +8,7 @@ import numpy as np
 def plot_decoded_image(
     *,
     preview: Sequence[float],
-    iteration: int | None = 0,
+    iteration: int = 0,
     figsize: tuple[int, int] = (6, 6),
     title: str | None = None,
 ) -> None:
@@ -27,7 +27,6 @@ def plot_inpainting_triplet(
     figsize: tuple[int, int] = (14, 4),
     title_prefix: str | None = None,
 ) -> None:
-
     def t(name: str) -> str:
         return f"{title_prefix} {name}" if title_prefix else name
 

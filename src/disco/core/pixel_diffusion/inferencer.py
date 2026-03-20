@@ -1,57 +1,75 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
+from typing import Self
 
 import torch
-from diffusers import DDPMScheduler
+from diffusers import DDPMScheduler  # type: ignore
 from torchvision import transforms
 
-from disco.core.pixel_diffusion.artifact import PixelDiffusionTrainerArtifact
-
-
-@dataclass(frozen=True)
-class PixelDiffusionRuntime:
-    adapter: torch.nn.Module
-    unet512: torch.nn.Module
-    noise_scheduler: DDPMScheduler
-    device: torch.device
-    dtype: torch.dtype
+from disco.core.pixel_diffusion.artifact import PixelDiffusionArtifact
+from disco.core.pixel_diffusion.models import LatentAdapter, UNet512
 
 
 class PixelDiffusionInferencer:
     """
-    Pixel diffuser inferencer (Cascade 512 stage).
+    Inference wrapper for the pixel diffusion stage.
 
-    Mirrors your LatentDiffuserInferencer style:
-      - __init__ builds a runtime from the artifact
-      - inference methods just use self.adapter/self.unet512/self.noise_scheduler
+    This class reconstructs the trained pixel diffusion runtime from a
+    ``PixelDiffusionArtifact`` and provides convenience methods for decoding
+    latent tensors into image tensors or saved PNG files.
+
+    The inferencer is intended for inference-only usage and keeps its modules
+    in evaluation mode.
     """
-
     def __init__(
         self,
         *,
-        artifact: PixelDiffusionTrainerArtifact,
+        artifact: PixelDiffusionArtifact,
+        adapter: LatentAdapter,
+        unet512: UNet512,
+        noise_scheduler: DDPMScheduler,
+        device: torch.device,
+        dtype: torch.dtype,
+    ) -> None:
+        self.artifact = artifact
+        self.adapter = adapter
+        self.unet512 = unet512
+        self.noise_scheduler = noise_scheduler
+        self.device = device
+        self.dtype = dtype
+        self._to_pil = transforms.ToPILImage()
+
+        self.adapter.eval()
+        self.unet512.eval()
+
+    @classmethod
+    def from_artifact(
+        cls,
+        artifact: PixelDiffusionArtifact,
+        *,
         pretrained_path: str = "runwayml/stable-diffusion-v1-5",
         num_inference_steps: int = 150,
         device: torch.device | str | None = None,
         dtype: torch.dtype | None = None,
-    ):
-        rt: PixelDiffusionRuntime = artifact.build_inference_runtime(
-            pretrained_path=pretrained_path,
-            num_inference_steps=num_inference_steps,
-            device=device,
-            dtype=dtype,
+    ) -> Self:
+        adapter, unet512, noise_scheduler, resolved_device, resolved_dtype = (
+            artifact.build_inference_components(
+                pretrained_path=pretrained_path,
+                num_inference_steps=num_inference_steps,
+                device=device,
+                dtype=dtype,
+            )
         )
 
-        self.adapter = rt.adapter
-        self.unet512 = rt.unet512
-        self.noise_scheduler = rt.noise_scheduler
-        self.device = rt.device
-        self.dtype = rt.dtype
-
-        self._to_pil = transforms.ToPILImage()
+        return cls(
+            artifact=artifact,
+            adapter=adapter,
+            unet512=unet512,
+            noise_scheduler=noise_scheduler,
+            device=resolved_device,
+            dtype=resolved_dtype,
+        )
 
     @torch.no_grad()
     def decode(
@@ -64,30 +82,34 @@ class PixelDiffusionInferencer:
         out_w: int = 512,
     ) -> torch.Tensor:
         """
-        Decode a latent into an image.
+        Decode a latent into an image tensor.
 
-        Inputs:
-          - latent: tensor [4,64,64] or [B,4,64,64]
-          - latent_path: path to torch-saved tensor (mutually exclusive with latent)
+        Args:
+            latent: Latent tensor with shape [4, 64, 64] or [B, 4, 64, 64].
+            latent_path: Path to a torch-saved latent tensor. Mutually exclusive
+                with ``latent``.
+            seed: Optional random seed for reproducible decoding noise.
+            out_h: Output image height.
+            out_w: Output image width.
 
         Returns:
-          - image tensor [3,H,W] in [0,1] on CPU
+            Image tensor with shape [3, H, W] in [0, 1] on CPU.
         """
         self._validate_decode_inputs(latent=latent, latent_path=latent_path)
 
         z = self._load_latent(latent=latent, latent_path=latent_path)
-        z = self._normalize_latent_shape(z).to(device=self.device, dtype=self.dtype)
+        z = self._ensure_batched_latent(z).to(device=self.device, dtype=self.dtype)
 
-        generator = None
+        generator: torch.Generator | None = None
         if seed is not None:
             generator = torch.Generator(device=self.device)
             generator.manual_seed(int(seed))
 
         cond_feats = self.adapter(z)
 
-        B = z.shape[0]
+        batch_size = z.shape[0]
         x = torch.randn(
-            B,
+            batch_size,
             3,
             out_h,
             out_w,
@@ -96,13 +118,18 @@ class PixelDiffusionInferencer:
             generator=generator,
         ) * self.noise_scheduler.init_noise_sigma
 
-        for t in self.noise_scheduler.timesteps:
-            t_batch = torch.full((B,), int(t), device=self.device, dtype=torch.long)
-            x0_pred = self.unet512(x, t_batch, cond_feats)
-            x = self.noise_scheduler.step(x0_pred, t, x).prev_sample
+        for timestep in self.noise_scheduler.timesteps:
+            timestep_batch = torch.full(
+                (batch_size,),
+                int(timestep),
+                device=self.device,
+                dtype=torch.long,
+            )
+            x0_pred = self.unet512(x, timestep_batch, cond_feats)
+            x = self.noise_scheduler.step(x0_pred, timestep, x).prev_sample  # type: ignore
 
-        out = (x.clamp(-1, 1) + 1) / 2  # [B,3,H,W] in [0,1]
-        return out[0].float().cpu()
+        output = (x.clamp(-1, 1) + 1) / 2
+        return output[0].float().cpu()
 
     def decode_to_png(
         self,
@@ -116,12 +143,15 @@ class PixelDiffusionInferencer:
         out_w: int = 512,
     ) -> Path:
         """
-        Decode and save as PNG. Returns the saved file path.
+        Decode a latent and save the result as a PNG file.
+
+        Returns:
+            Path to the saved PNG.
         """
         if not output_dir:
             raise ValueError("output_dir must be provided.")
 
-        img = self.decode(
+        image = self.decode(
             latent=latent,
             latent_path=latent_path,
             seed=seed,
@@ -129,13 +159,14 @@ class PixelDiffusionInferencer:
             out_w=out_w,
         )
 
-        out_dir = Path(output_dir)
-        out_dir.mkdir(parents=True, exist_ok=True)
+        output_dir = Path(output_dir)
+        output_dir.mkdir(parents=True, exist_ok=True)
 
-        out_path = out_dir / output_name
-        pil = self._to_pil(img.clamp(0, 1))
-        pil.save(str(out_path))
-        return out_path
+        output_path = output_dir / output_name
+        pil_image = self._to_pil(image.clamp(0, 1))
+        pil_image.save(output_path)
+
+        return output_path
 
     @staticmethod
     def _validate_decode_inputs(
@@ -143,14 +174,15 @@ class PixelDiffusionInferencer:
         latent: torch.Tensor | None,
         latent_path: str | Path | None,
     ) -> None:
+        """Validate mutually exclusive latent input arguments."""
         if latent is None and latent_path is None:
             raise ValueError("Provide either `latent` or `latent_path`.")
         if latent is not None and latent_path is not None:
             raise ValueError("Provide only one of `latent` or `latent_path` (not both).")
         if latent_path is not None:
-            p = Path(latent_path)
-            if not p.exists():
-                raise FileNotFoundError(f"latent_path does not exist: {p}")
+            latent_path = Path(latent_path)
+            if not latent_path.exists():
+                raise FileNotFoundError(f"latent_path does not exist: {latent_path}")
 
     @staticmethod
     def _load_latent(
@@ -158,20 +190,28 @@ class PixelDiffusionInferencer:
         latent: torch.Tensor | None,
         latent_path: str | Path | None,
     ) -> torch.Tensor:
+        """Return a latent tensor from an in-memory tensor or a saved file."""
         if latent is not None:
             if not isinstance(latent, torch.Tensor):
                 raise TypeError("latent must be a torch.Tensor.")
             return latent
-
-        z = torch.load(str(latent_path), map_location="cpu")
-        if not isinstance(z, torch.Tensor):
+        
+        if latent_path is None:
+            raise ValueError("latent_path must be provided if latent is None.")
+        latent_path = Path(latent_path)
+        loaded_latent = torch.load(latent_path, map_location="cpu")
+        
+        if not isinstance(loaded_latent, torch.Tensor):
             raise TypeError("Loaded latent is not a torch.Tensor.")
-        return z
+        return loaded_latent
 
     @staticmethod
-    def _normalize_latent_shape(z: torch.Tensor) -> torch.Tensor:
-        if z.ndim == 3:
-            return z.unsqueeze(0)  # [4,64,64] -> [1,4,64,64]
-        if z.ndim != 4:
-            raise ValueError(f"latent must be [4,64,64] or [B,4,64,64], got ndim={z.ndim}.")
-        return z
+    def _ensure_batched_latent(latent: torch.Tensor) -> torch.Tensor:
+        """Ensure the latent has shape [B, C, H, W]."""
+        if latent.ndim == 3:
+            return latent.unsqueeze(0)
+        if latent.ndim != 4:
+            raise ValueError(
+                f"latent must be [4,64,64] or [B,4,64,64], got ndim={latent.ndim}."
+            )
+        return latent

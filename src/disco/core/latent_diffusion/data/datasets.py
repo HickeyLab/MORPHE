@@ -127,14 +127,14 @@ class Slice3DDataset(Dataset):
             img_gt   = img_gt.rotate(angle)
 
         if hflip:
-            img_prev = img_prev.transpose(Image.FLIP_LEFT_RIGHT)
-            img_next = img_next.transpose(Image.FLIP_LEFT_RIGHT)
-            img_gt   = img_gt.transpose(Image.FLIP_LEFT_RIGHT)
+            img_prev = img_prev.transpose(Image.Transpose.FLIP_LEFT_RIGHT)
+            img_next = img_next.transpose(Image.Transpose.FLIP_LEFT_RIGHT)
+            img_gt   = img_gt.transpose(Image.Transpose.FLIP_LEFT_RIGHT)
 
         if vflip:
-            img_prev = img_prev.transpose(Image.FLIP_TOP_BOTTOM)
-            img_next = img_next.transpose(Image.FLIP_TOP_BOTTOM)
-            img_gt   = img_gt.transpose(Image.FLIP_TOP_BOTTOM)
+            img_prev = img_prev.transpose(Image.Transpose.FLIP_TOP_BOTTOM)
+            img_next = img_next.transpose(Image.Transpose.FLIP_TOP_BOTTOM)
+            img_gt   = img_gt.transpose(Image.Transpose.FLIP_TOP_BOTTOM)
 
         return (
             self.to_tensor(img_prev),
@@ -151,7 +151,7 @@ class InpaintDataset(Dataset):
         self.img_size = img_size
         self.masks_per_image = masks_per_image
 
-        self.transform = transforms.Compose([
+        self.transform: torch.Callable[[Image.Image], torch.Tensor] = transforms.Compose([
             transforms.RandomChoice([
                 transforms.Lambda(lambda x: x),
                 transforms.Lambda(lambda x: TF.rotate(x, 90)),
@@ -231,7 +231,7 @@ class OutpaintDataset(Dataset):
         self.img_size = img_size
         self.masks_per_image = masks_per_image
 
-        self.transform = transforms.Compose([
+        self.transform: torch.Callable[[Image.Image], torch.Tensor] = transforms.Compose([
             transforms.RandomChoice([
                 transforms.Lambda(lambda x: x),
                 transforms.Lambda(lambda x: TF.rotate(x, 90)),

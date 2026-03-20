@@ -8,20 +8,20 @@ import torch
 import torch.nn.functional as F
 from torch.utils.data import Dataset
 
-from src.disco.core.latent_diffusion.data import InpaintDataset
-from src.disco.core.latent_diffusion.strategy.base import DiffusionStrategy
+from disco.core.latent_diffusion.data.builders import build_inpaint_dataset
+from disco.core.latent_diffusion.train.base import LatentTrainStrategy
+from disco.core.latent_diffusion.data.datasets import InpaintDataset
+from disco.utils import get_config_attr
 
 if TYPE_CHECKING:
-    from src.disco.core.latent_diffusion.diffusion_trainer import DiffusionTrainer
+    from disco.core.latent_diffusion.train.diffusion_trainer import DiffusionTrainer
 
 
 @dataclass(frozen=True)
-class ArbitraryInpainting(DiffusionStrategy):
-
+class InpaintTrainStrategy(LatentTrainStrategy):
     # --------------------------------------------------
     # Metadata (kept)
     # --------------------------------------------------
-    name: str = "arbitrary_inpainting"
     requires_coord_encoder: bool = True
     three_dimensional_cond_encoder: bool = False
 
@@ -29,17 +29,11 @@ class ArbitraryInpainting(DiffusionStrategy):
     train_num_workers: int = 4
     val_num_workers: int = 2
 
-    # training control (kept)
-    patience: Optional[int] = None
-    decay_enabled: Optional[bool] = None
-    lr_decay_every: Optional[int] = None
-    lr_decay_factor: Optional[float] = None
-
     # task-specific params
     masks_per_image_train: int = 2
     masks_per_image_val: int = 5
     img_size: int = 512
-
+    
     # --------------------------------------------------
     # Dataset
     # --------------------------------------------------
@@ -47,23 +41,12 @@ class ArbitraryInpainting(DiffusionStrategy):
         self,
         root_dir: Path,
     ) -> tuple[Dataset, Dataset]:
-
-        train_dir = root_dir / "train"
-        val_dir = root_dir / "val"
-
-        train_dataset = InpaintDataset(
-            train_dir,
-            img_size=self.img_size,
-            masks_per_image=self.masks_per_image_train,
+        return build_inpaint_dataset(
+            root_dir=root_dir,
+            masks_per_image_train=self.masks_per_image_train,
+            masks_per_image_val=self.masks_per_image_val,
+            img_size=self.img_size
         )
-
-        val_dataset = InpaintDataset(
-            val_dir,
-            img_size=self.img_size,
-            masks_per_image=self.masks_per_image_val,
-        )
-
-        return train_dataset, val_dataset
 
     # --------------------------------------------------
     # FULL train step
@@ -73,7 +56,9 @@ class ArbitraryInpainting(DiffusionStrategy):
         trainer: "DiffusionTrainer",
         batch,
     ) -> torch.Tensor:
-
+        if not trainer.coord_encoder:
+            raise ValueError("Coord encoder is required for inpainting training.")
+        
         masked_imgs, target_imgs, mask = batch
 
         device = trainer.accelerator.device
@@ -85,7 +70,7 @@ class ArbitraryInpainting(DiffusionStrategy):
         # Encode target latents
         # ---------------------------------------
         with torch.no_grad():
-            target_latents = trainer.vae.encode(target_imgs).latent_dist.sample()
+            target_latents = trainer.vae.encode(target_imgs).latent_dist.sample() # type: ignore
             target_latents = target_latents * trainer.scaling_factor
 
         B, C, lh, lw = target_latents.shape
@@ -100,10 +85,11 @@ class ArbitraryInpainting(DiffusionStrategy):
         # Diffusion forward
         # ---------------------------------------
         noise = torch.randn_like(target_latents)
-
+        
+        num_train_timesteps = get_config_attr(trainer.noise_scheduler.config, "num_train_timesteps")
         timesteps = torch.randint(
             0,
-            trainer.noise_scheduler.config.num_train_timesteps,
+            num_train_timesteps,
             (B,),
             device=device,
         )
@@ -111,7 +97,7 @@ class ArbitraryInpainting(DiffusionStrategy):
         noisy_latents = trainer.noise_scheduler.add_noise(
             target_latents * latent_mask,
             noise * latent_mask,
-            timesteps,
+            timesteps, # type: ignore
         )
 
         noisy_latents = target_latents * (1 - latent_mask) + noisy_latents
@@ -120,10 +106,12 @@ class ArbitraryInpainting(DiffusionStrategy):
         # Condition encoding
         # ---------------------------------------
         with torch.no_grad():
-            masked_latents = trainer.vae.encode(masked_imgs).latent_dist.sample()
+            masked_latents = trainer.vae.encode(masked_imgs).latent_dist.sample() # type: ignore
             masked_latents = masked_latents * trainer.scaling_factor
 
         cond_tokens = trainer.cond_proj(masked_latents)
+        
+        
         coord_tokens = trainer.coord_encoder(mask)
 
         condition = torch.cat([cond_tokens, coord_tokens], dim=-1)
@@ -148,7 +136,6 @@ class ArbitraryInpainting(DiffusionStrategy):
     # Validation
     # --------------------------------------------------
     def validate_step(self, trainer: "DiffusionTrainer") -> float:
-
         trainer.unet.eval()
 
         total = 0.0

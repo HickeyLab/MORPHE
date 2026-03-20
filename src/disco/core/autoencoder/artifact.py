@@ -11,6 +11,7 @@ from src.disco.core.autoencoder.model import Autoencoder
 @dataclass(frozen=True)
 class AutoencoderArtifact:
     state_dict: Mapping[str, torch.Tensor]
+    input_cols: list[str]
     in_dim: int
     bottleneck_dim: int
     hidden_dim: int
@@ -50,6 +51,7 @@ class AutoencoderArtifact:
             "hidden_dim": self.hidden_dim,
             "z_min": self.z_min.detach().cpu(),
             "z_max": self.z_max.detach().cpu(),
+            "input_cols": self.input_cols,
         }
         torch.save(payload, str(path))
 
@@ -62,12 +64,13 @@ class AutoencoderArtifact:
         except TypeError:
             payload = torch.load(str(path), map_location="cpu")
 
-        for k in ("state_dict", "in_dim", "bottleneck_dim", "hidden_dim", "z_min", "z_max"):
+        for k in ("state_dict", "in_dim", "bottleneck_dim", "hidden_dim", "z_min", "z_max", "input_cols"):
             if k not in payload:
                 raise ValueError(f"Invalid artifact file: missing key '{k}'")
 
         return AutoencoderArtifact(
             state_dict=payload["state_dict"],
+            input_cols=payload["input_cols"],
             in_dim=int(payload["in_dim"]),
             bottleneck_dim=int(payload["bottleneck_dim"]),
             hidden_dim=int(payload["hidden_dim"]),

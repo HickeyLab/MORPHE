@@ -5,99 +5,89 @@ from pathlib import Path
 import numpy as np
 import torch
 from torch.utils.data import DataLoader
-from diffusers import DDPMScheduler, UNet2DConditionModel, AutoencoderKL
+from diffusers import DDPMScheduler, UNet2DConditionModel, AutoencoderKL # type: ignore
 from accelerate import Accelerator
 from tqdm import tqdm
+from disco.core.latent_diffusion.train.three_dim import ThreeDimImputationTrainStrategy
+from disco.core.latent_diffusion.train.train_config import LatentTrainerConfig
+from disco.core.latent_diffusion.train.base import LatentTrainStrategy
 
-from src.disco.core.latent_diffusion.artifact import LatentDiffuserArtifact
+from disco.utils import set_config_attr
+from src.disco.core.latent_diffusion.artifact import LatentDiffusionArtifact
 from src.disco.core.latent_diffusion.model import (
     CondEncoder,
     CoordEncoder,
     BBoxEncoder,
     CondEncoder3D,
 )
-from src.disco.core.latent_diffusion.strategy.base import DiffusionStrategy
 from src.disco.viz.loss_curve import plot_loss_curve
 
 
 def _get_scaling_factor(vae: AutoencoderKL) -> float:
     return float(getattr(getattr(vae, "config", None), "scaling_factor", 0.18215))
 
-
 class DiffusionTrainer:
-
     def __init__(
         self,
         *,
-        strategy: DiffusionStrategy,
+        train_strategy: LatentTrainStrategy,
         root_dir: Path,
-        save_dir: str = "checkpoints",
-        save_best_only: bool = True,
-        pretrained: str = "runwayml/stable-diffusion-v1-5",
-        lr: float = 2e-5,
-        mixed_precision: str = "fp16",
-        grad_clip: float = 1.0,
-        cond_encoder_kwargs: dict | None = None,
-        coord_encoder_kwargs: dict | None = None,
-        bbox_encoder_kwargs: dict | None = None,
-        batch_size: int = 8,
-        val_batch_size: int = 8,
+        cfg: LatentTrainerConfig,
     ):
 
-        self.strategy = strategy
-        self.save_dir = Path(save_dir)
-        self.save_best_only = save_best_only
-        self.grad_clip = float(grad_clip)
+        self.train_strategy = train_strategy
+        self.cfg = cfg
+        self.cfg.validate()
+        
+        self.save_dir = Path(self.cfg.save_dir)
 
-        self.cond_encoder_kwargs = cond_encoder_kwargs or {}
-        self.coord_encoder_kwargs = coord_encoder_kwargs or {}
-        self.bbox_encoder_kwargs = bbox_encoder_kwargs or {}
+        self.cond_encoder_kwargs = self.cfg.cond_encoder_kwargs or {}
+        self.coord_encoder_kwargs = self.cfg.coord_encoder_kwargs or {}
+        self.bbox_encoder_kwargs = self.cfg.bbox_encoder_kwargs or {}
 
         self.train_loss_history: list[float] = []
         self.val_loss_history: list[float] = []
 
-        self.accelerator = Accelerator(mixed_precision=mixed_precision)
+        self.accelerator = Accelerator(mixed_precision=self.cfg.mixed_precision)
 
         # -------------------------------
         # Dataset
         # -------------------------------
-        train_data, val_data = strategy.build_dataset(root_dir)
+        train_data, val_data = train_strategy.build_dataset(root_dir)
 
         self.train_loader = DataLoader(
             train_data,
-            batch_size=batch_size,
+            batch_size=self.cfg.batch_size,
             shuffle=True,
-            num_workers=strategy.train_num_workers,
+            num_workers=train_strategy.train_num_workers,
             pin_memory=True,
         )
 
         self.val_loader = DataLoader(
             val_data,
-            batch_size=val_batch_size,
+            batch_size=self.cfg.val_batch_size,
             shuffle=False,
-            num_workers=strategy.val_num_workers,
+            num_workers=train_strategy.val_num_workers,
             pin_memory=True,
         )
 
         # -------------------------------
         # Load pretrained backbone
         # -------------------------------
-        self.vae = AutoencoderKL.from_pretrained(pretrained, subfolder="vae")
-        self.unet = UNet2DConditionModel.from_pretrained(pretrained, subfolder="unet")
+        self.vae = AutoencoderKL.from_pretrained(self.cfg.pretrained, subfolder="vae")
+        self.unet = UNet2DConditionModel.from_pretrained(self.cfg.pretrained, subfolder="unet")
         self.noise_scheduler = DDPMScheduler.from_pretrained(
-            pretrained, subfolder="scheduler"
+            self.cfg.pretrained, subfolder="scheduler"
         )
-
-        if strategy.name == "3dimputation":
-            self.noise_scheduler.config.prediction_type = "sample"
-        if not strategy.requires_bbox_encoder and not strategy.requires_bbox_encoder:
-            if hasattr(self.noise_scheduler, "config"):
-                self.noise_scheduler.config.prediction_type = "sample"
+        
+        if isinstance(train_strategy, ThreeDimImputationTrainStrategy):
+            config = self.noise_scheduler.config
+            set_config_attr(config, "prediction_type", "sample")
 
         # -------------------------------
         # Condition encoders
         # -------------------------------
-        if strategy.requires_bbox_encoder:
+        if train_strategy.requires_bbox_encoder:
             self.bbox_encoder = BBoxEncoder(**self.bbox_encoder_kwargs)
             self.cond_proj = CondEncoder(
                 in_channels=4,
@@ -106,7 +96,7 @@ class DiffusionTrainer:
             )
             self.coord_encoder = None
 
-        elif strategy.requires_coord_encoder:
+        elif train_strategy.requires_coord_encoder:
             self.coord_encoder = CoordEncoder(**self.coord_encoder_kwargs)
             self.cond_proj = CondEncoder(
                 in_channels=4,
@@ -137,7 +127,7 @@ class DiffusionTrainer:
         if self.bbox_encoder is not None:
             params += list(self.bbox_encoder.parameters())
 
-        self.optimizer = torch.optim.AdamW(params, lr=lr)
+        self.optimizer = torch.optim.AdamW(params, lr=self.cfg.lr)
 
         # -------------------------------
         # Prepare with accelerator
@@ -203,7 +193,6 @@ class DiffusionTrainer:
     # =====================================================
 
     def _train_one_epoch(self, *, epoch: int) -> float:
-
         self.unet.train()
         losses: list[float] = []
 
@@ -213,13 +202,13 @@ class DiffusionTrainer:
 
             with self.accelerator.accumulate(self.unet):
 
-                loss = self.strategy.train_step(self, batch)
+                loss = self.train_strategy.train_step(self, batch)
 
                 self.accelerator.backward(loss)
 
-                if self.accelerator.sync_gradients and self.grad_clip is not None:
+                if self.accelerator.sync_gradients and self.cfg.grad_clip is not None:
                     params = self.optimizer.param_groups[0]["params"]
-                    self.accelerator.clip_grad_norm_(params, self.grad_clip)
+                    self.accelerator.clip_grad_norm_(params, self.cfg.grad_clip)
 
                 self.optimizer.step()
                 self.optimizer.zero_grad(set_to_none=True)
@@ -233,95 +222,91 @@ class DiffusionTrainer:
     # =====================================================
     # Save
     # =====================================================
-
-    def _save_best_checkpoint(self, save_dir: Path):
-
+    def _save_best_checkpoint(self, save_dir: Path) -> LatentDiffusionArtifact:
         save_dir.mkdir(exist_ok=True)
 
-        coord_state = None
-        if self.coord_encoder is not None:
-            coord_state = self.coord_encoder.state_dict()
+        coord_state = self.coord_encoder.state_dict() if self.coord_encoder is not None else None
+        bbox_state = self.bbox_encoder.state_dict() if self.bbox_encoder is not None else None
 
-        bbox_state = None
-        if self.bbox_encoder is not None:
-            bbox_state = self.bbox_encoder.state_dict()
+        cfg = dict(self.unet.config)
 
-        # FIX: FrozenDict compatibility
-        cfg = self.unet.config
-        if hasattr(cfg, "to_dict"):
-            cfg = cfg.to_dict()
-        else:
-            cfg = dict(cfg)
-
-        artifact = LatentDiffuserArtifact(
+        artifact = LatentDiffusionArtifact(
             unet_state_dict=self.unet.state_dict(),
             cond_encoder_state_dict=self.cond_proj.state_dict(),
             coord_encoder_state_dict=coord_state,
             bbox_encoder_state_dict=bbox_state,
             unet_config=cfg,
             cond_encoder_kwargs=dict(self.cond_encoder_kwargs),
-            coord_encoder_kwargs=(
-                None if self.coord_encoder is None else dict(self.coord_encoder_kwargs)
-            ),
-            bbox_encoder_kwargs=(
-                None if self.bbox_encoder is None else dict(self.bbox_encoder_kwargs)
-            ),
+            coord_encoder_kwargs=None if self.coord_encoder is None else dict(self.coord_encoder_kwargs),
+            bbox_encoder_kwargs=None if self.bbox_encoder is None else dict(self.bbox_encoder_kwargs),
         )
 
         artifact_path = save_dir / "latent_diffuser_artifact.pt"
         artifact.save(artifact_path)
+        return artifact
+    
+    def _build_artifact_in_memory(self) -> LatentDiffusionArtifact:
+        coord_state = self.coord_encoder.state_dict() if self.coord_encoder is not None else None
+        bbox_state = self.bbox_encoder.state_dict() if self.bbox_encoder is not None else None
+
+        cfg = dict(self.unet.config)
+
+        artifact = LatentDiffusionArtifact(
+            unet_state_dict=self.unet.state_dict(),
+            cond_encoder_state_dict=self.cond_proj.state_dict(),
+            coord_encoder_state_dict=coord_state,
+            bbox_encoder_state_dict=bbox_state,
+            unet_config=cfg,
+            cond_encoder_kwargs=dict(self.cond_encoder_kwargs),
+            coord_encoder_kwargs=None if self.coord_encoder is None else dict(self.coord_encoder_kwargs),
+            bbox_encoder_kwargs=None if self.bbox_encoder is None else dict(self.bbox_encoder_kwargs),
+        )
+
+        return artifact
 
     # =====================================================
     # Main Loop
     # =====================================================
-
     def train(
         self,
         *,
-        epochs: int = 20,
         show_loss_curve: bool = False,
         figsize: tuple[int, int] = (7, 5),
         save_checkpoints: bool = True,
-    ) -> None:
+    ) -> LatentDiffusionArtifact:
 
         best_val = float("inf")
         patience_cnt = 0
-        patience = getattr(self.strategy, "patience", None)
+        patience = getattr(self.train_strategy, "patience", None)
 
-        for epoch in range(epochs):
+        best_artifact: LatentDiffusionArtifact | None = None
 
+        for epoch in range(self.cfg.epochs):
             train_loss = self._train_one_epoch(epoch=epoch)
             self.train_loss_history.append(train_loss)
 
-            val_loss = self.strategy.validate_step(trainer=self)
+            val_loss = self.train_strategy.validate_step(trainer=self)
             self.val_loss_history.append(val_loss)
 
-            print(
-                f"Epoch {epoch} -> "
-                f"Train: {train_loss:.6f}  Val: {val_loss:.6f}"
-            )
+            print(f"Epoch {epoch} -> Train: {train_loss:.6f}  Val: {val_loss:.6f}")
 
             improved = val_loss < best_val
-
             if improved:
                 best_val = val_loss
                 self.accelerator.wait_for_everyone()
 
-                if save_checkpoints:
-                    self._save_best_checkpoint(self.save_dir)
+                # always keep an in-memory copy
+                best_artifact = self._save_best_checkpoint(self.save_dir) if save_checkpoints else self._build_artifact_in_memory()
 
             if patience is not None:
-                if improved:
-                    patience_cnt = 0
-                else:
-                    patience_cnt += 1
-                    if patience_cnt >= patience:
-                        print("Early stopping.")
-                        break
+                patience_cnt = 0 if improved else patience_cnt + 1
+                if patience_cnt >= patience:
+                    print("Early stopping.")
+                    break
 
-            if getattr(self.strategy, "decay_enabled", False):
-                every = getattr(self.strategy, "lr_decay_every", None)
-                factor = float(getattr(self.strategy, "lr_decay_factor", 0.5))
+            if getattr(self.train_strategy, "decay_enabled", False):
+                every = getattr(self.train_strategy, "lr_decay_every", None)
+                factor = float(getattr(self.train_strategy, "lr_decay_factor", 0.5))
                 if every is not None and epoch % every == 0:
                     for g in self.optimizer.param_groups:
                         g["lr"] *= factor
@@ -334,3 +319,8 @@ class DiffusionTrainer:
                     title="Loss Curve",
                     save_path=self.save_dir,
                 )
+
+        if best_artifact is None:
+            best_artifact = self._save_best_checkpoint(self.save_dir) if save_checkpoints else self._build_artifact_in_memory()
+
+        return best_artifact

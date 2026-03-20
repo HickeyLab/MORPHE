@@ -1,0 +1,156 @@
+from dataclasses import dataclass
+import os
+from pathlib import Path
+
+
+@dataclass(frozen=True, slots=True)
+class Cascade512TrainerConfig:
+    # -------------------------------
+    # Core optimization
+    # -------------------------------
+    lr: float = 1e-5
+    optimizer_betas: tuple[float, float] = (0.9, 0.999)
+    optimizer_weight_decay: float = 1e-5
+
+    # -------------------------------
+    # Runtime
+    # -------------------------------
+    mixed_precision: str = "fp16"
+
+    # -------------------------------
+    # Data loading
+    # -------------------------------
+    train_num_workers: int = 4
+    train_batch_size: int = 4
+    val_num_workers: int = 2
+    val_batch_size: int = 2
+
+    # -------------------------------
+    # Model / pretrained sources
+    # -------------------------------
+    ae_pretrained: str = "runwayml/stable-diffusion-v1-5"
+    scheduler_pretrained: str = "runwayml/stable-diffusion-v1-5"
+    adapter_kwargs: dict[str, int] | None = None
+    unet_kwargs: dict[str, int] | None = None
+
+    # -------------------------------
+    # Output
+    # -------------------------------
+    vis_dir: str | Path = "visualizations"
+    comp_eval_save_dir: str | Path = "comp_eval"
+
+    # -------------------------------
+    # Training loop
+    # -------------------------------
+    epochs: int = 30
+    patience: int = 5
+
+    # -------------------------------
+    # Evaluation / visualization
+    # -------------------------------
+    enable_epoch_visualizations: bool = False
+    enable_sample_visualization: bool = True
+    enable_composition_eval: bool = True
+    visualization_inference_steps: int = 50
+    visualize_max_batches: int = 2
+    chart_left_title: str = "Original Composition"
+    chart_right_title: str = "Predicted Composition"
+    
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "vis_dir", Path(self.vis_dir))
+        object.__setattr__(self, "comp_eval_save_dir", Path(self.comp_eval_save_dir))
+        self.validate()
+
+    def validate(self) -> None:
+        # -------------------------------
+        # Core optimization
+        # -------------------------------
+        if not isinstance(self.train_batch_size, int) or self.train_batch_size <= 0:
+            raise ValueError(f"train_batch_size must be a positive int, got {self.train_batch_size!r}")
+
+        if not isinstance(self.lr, (int, float)) or float(self.lr) <= 0:
+            raise ValueError(f"lr must be a positive number, got {self.lr!r}")
+
+        if (
+            not isinstance(self.optimizer_betas, tuple)
+            or len(self.optimizer_betas) != 2
+            or not all(isinstance(x, (int, float)) for x in self.optimizer_betas)
+        ):
+            raise TypeError("optimizer_betas must be a tuple[float, float]")
+
+        if not isinstance(self.optimizer_weight_decay, (int, float)) or float(self.optimizer_weight_decay) < 0:
+            raise ValueError("optimizer_weight_decay must be a number >= 0")
+
+        # -------------------------------
+        # Runtime
+        # -------------------------------
+        if self.mixed_precision not in {"no", "fp16", "bf16"}:
+            raise ValueError("mixed_precision must be one of {'no', 'fp16', 'bf16'}")
+
+        # -------------------------------
+        # Data loading
+        # -------------------------------
+        for name, val in (
+            ("train_num_workers", self.train_num_workers),
+            ("val_num_workers", self.val_num_workers),
+            ("val_batch_size", self.val_batch_size),
+            ("train_batch_size", self.train_batch_size),
+        ):
+            if not isinstance(val, int) or val < 0:
+                raise ValueError(f"{name} must be a non-negative int, got {val!r}")
+
+        # -------------------------------
+        # Model / pretrained sources
+        # -------------------------------
+        if not isinstance(self.ae_pretrained, str) or not self.ae_pretrained:
+            raise ValueError("ae_pretrained must be a non-empty str")
+
+        if not isinstance(self.scheduler_pretrained, str) or not self.scheduler_pretrained:
+            raise ValueError("scheduler_pretrained must be a non-empty str")
+
+        for name, val in (("adapter_kwargs", self.adapter_kwargs), ("unet_kwargs", self.unet_kwargs)):
+            if val is not None and not isinstance(val, dict):
+                raise TypeError(f"{name} must be dict or None, got {type(val).__name__}")
+
+        # -------------------------------
+        # Output
+        # -------------------------------
+        if not (isinstance(self.vis_dir, Path) and str(self.vis_dir)):
+            raise ValueError("vis_dir must be a non-empty Path")
+        self.vis_dir.mkdir(parents=True, exist_ok=True)
+
+        if not (isinstance(self.comp_eval_save_dir, Path) and str(self.comp_eval_save_dir)):
+            raise ValueError("comp_eval_save_dir must be a non-empty Path")
+        self.comp_eval_save_dir.mkdir(parents=True, exist_ok=True)
+
+        # -------------------------------
+        # Training loop
+        # -------------------------------
+        for name, val in (
+            ("epochs", self.epochs),
+            ("patience", self.patience),
+            ("visualization_inference_steps", self.visualization_inference_steps),
+            ("visualize_max_batches", self.visualize_max_batches),
+        ):
+            if not isinstance(val, int) or val <= 0:
+                raise ValueError(f"{name} must be a positive int, got {val!r}")
+
+        # -------------------------------
+        # Evaluation / visualization
+        # -------------------------------
+        if not isinstance(self.enable_epoch_visualizations, bool):
+            raise TypeError(
+                f"enable_epoch_visualizations must be bool, got {type(self.enable_epoch_visualizations).__name__}"
+            )
+
+        if not isinstance(self.enable_sample_visualization, bool):
+            raise TypeError("enable_sample_visualization must be bool.")
+
+        if not isinstance(self.enable_composition_eval, bool):
+            raise TypeError("enable_composition_eval must be bool.")
+
+        if not isinstance(self.chart_left_title, str) or not self.chart_left_title:
+            raise ValueError("chart_left_title must be a non-empty str.")
+
+        if not isinstance(self.chart_right_title, str) or not self.chart_right_title:
+            raise ValueError("chart_right_title must be a non-empty str.")

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, Literal, Sequence
 
@@ -8,98 +8,46 @@ import numpy as np
 import torch
 from PIL import Image
 from torchvision import transforms
-from src.disco.core.latent_diffusion.artifact import LatentDiffuserArtifact
 
-from src.disco.core.latent_diffusion.infer.base import InferenceResult, LatentDiffusionInferencer
-from src.disco.core.latent_diffusion.strategy.outpaint import OutpaintDiffusion
+from disco.constants import DIRECTION_TO_IDX
+from disco.core.latent_diffusion.infer.base import BaseLatentInferencer
+from disco.core.latent_diffusion.infer.run_config import OutpaintRunConfig
+from disco.core.latent_diffusion.train.outpaint import OutpaintTrainStrategy
+from src.disco.core.latent_diffusion.artifact import LatentDiffusionArtifact
+
 from src.disco.viz.decoded_img import plot_decoded_image
 
 
-DIRECTION = Literal["right", "left", "down", "up"]
-
-
-class OutpaintInferencer(LatentDiffusionInferencer):
-    REQUIRED_STRATEGY_NAME = "outpainting"
-
+class OutpaintInferencer(BaseLatentInferencer):
     def __init__(
         self, 
         *, 
-        artifact: LatentDiffuserArtifact,
-        strategy: OutpaintDiffusion, 
+        artifact: LatentDiffusionArtifact,
+        train_strategy: OutpaintTrainStrategy, 
         pretrained_path: str = "runwayml/stable-diffusion-v1-5",
         device: torch.device | str | None = None,
         dtype: torch.dtype | None = None,
     ) -> None:
-        if getattr(strategy, "name", None) != self.REQUIRED_STRATEGY_NAME:
+        if not isinstance(train_strategy, OutpaintTrainStrategy):
             raise TypeError(
-                f"OutpaintInferencer requires strategy_name='{self.REQUIRED_STRATEGY_NAME}', "
-                f"got {getattr(strategy, 'strategy_name', None)!r}"
+                f"train_strategy must be an instance of OutpaintTrainStrategy, got {type(train_strategy)}"
             )
+            
         super().__init__(
             artifact=artifact, 
-            strategy=strategy, 
+            train_strategy=train_strategy, 
             pretrained_path=pretrained_path,
             device=device,
             dtype=dtype,
         )
 
-        self.directions: list[DIRECTION] = ["right", "left", "down", "up"]
-
-        self.transform = transforms.Compose(
+        self.transform: torch.Callable[[Image.Image], torch.Tensor] = transforms.Compose(
             [
                 transforms.Resize((512, 512)),
                 transforms.ToTensor(),
                 transforms.Normalize([0.5] * 3, [0.5] * 3),
             ]
         )
-
-    def _validate_run_args(
-        self,
-        original_path: str | Path,
-        save_dir: str | Path,
-        *,
-        steps: int,
-        iterations: int,
-        crop_ratio: float,
-        direction: DIRECTION,
-        plot_fig_size: tuple[int, int] | None,
-    ) -> tuple[Path, Path]:
-        if original_path is None or save_dir is None:
-            raise RuntimeError(
-                "OutpaintInferencer requires original_path and save_dir but one of them is None."
-            )
-
-        original_path = Path(original_path)
-        save_dir = Path(save_dir)
-
-        if not original_path.exists():
-            raise FileNotFoundError(f"original_path does not exist: {original_path}")
-
-        save_dir.mkdir(parents=True, exist_ok=True)
-
-        if not isinstance(steps, int) or steps <= 0:
-            raise ValueError("`steps` must be a positive integer.")
-        if not isinstance(iterations, int) or iterations <= 0:
-            raise ValueError("`iterations` must be a positive integer.")
-        if not isinstance(crop_ratio, (int, float)) or not (0.0 < float(crop_ratio) < 1.0):
-            raise ValueError("`crop_ratio` must be a float in (0, 1).")
-        if direction not in self.directions:
-            raise ValueError(f"`direction` must be one of {self.directions}, got {direction!r}.")
-
-        if plot_fig_size is not None:
-            if (
-                not isinstance(plot_fig_size, tuple)
-                or len(plot_fig_size) != 2
-                or not all(isinstance(x, int) and x > 0 for x in plot_fig_size)
-            ):
-                raise ValueError("`plot_fig_size` must be tuple[int, int] with positive values.")
-
-        if self.vae is None or self.unet is None or self.noise_scheduler is None:
-            raise RuntimeError("Inferencer requires loaded VAE, UNet, and noise_scheduler.")
-        if self.cond_proj is None or self.bbox_encoder is None:
-            raise RuntimeError("Inferencer requires cond_proj and bbox_encoder.")
-
-        return original_path, save_dir
 
     def _extract_old_region(self, image_tensor: torch.Tensor, direction_idx: int, crop_ratio: float) -> torch.Tensor:
         """Apply zero mask to input image
@@ -192,63 +140,45 @@ class OutpaintInferencer(LatentDiffusionInferencer):
             return torch.cat([generated[..., :, mask_size:, :], generated[..., :, :mask_size, :]], dim=-2)
         # direction_idx == 3: up
         return torch.cat([generated[..., :, -mask_size:, :], generated[..., :, :-mask_size, :]], dim=-2)
+    
+    def _require_bbox_encoder(self) -> torch.nn.Module:
+        if self.bbox_encoder is None:
+            raise RuntimeError("bbox_encoder is required for outpaint inference.")
+        return self.bbox_encoder
 
-    def run_one(
-        self,
-        original_file_path: str | Path,
-        save_dir: str | Path,
-        *,
-        save_name: str = "default",
-        steps: int = 200,
-        crop_ratio: float = 0.97,
-        iterations: int = 10,
-        direction: DIRECTION = "right",
-        show_plot: bool = False,
-        plot_title: str | None = None,
-        plot_fig_size: tuple[int, int] | None = None,
-    ) -> "InferenceResult": 
-        original_file_path, save_dir = self._validate_run_args(
-            original_file_path,
-            save_dir,
-            steps=steps,
-            iterations=iterations,
-            crop_ratio=crop_ratio,
-            direction=direction,
-            plot_fig_size=plot_fig_size,
-        )
-
-        with Image.open(original_file_path) as img:
+    def run_one(self, cfg: OutpaintRunConfig) -> torch.Tensor: 
+        with Image.open(cfg.original_dir) as img:
             img = img.convert("RGB")
             image_tensor = self.transform(img).unsqueeze(0).to(self.device)
 
-        direction_idx = self.directions.index(direction)
+        direction_idx = DIRECTION_TO_IDX[cfg.direction]
         current_image = image_tensor.clone()
         b, c, h, w = current_image.shape
         
         # Fixed
         lh, lw = 64, 64
 
-        crop_w, crop_h = int(w * crop_ratio), int(h * crop_ratio)
-        crop_lw, crop_lh = int(lw * crop_ratio), int(lh * crop_ratio)
-        mask_size = (w - crop_w) if direction in ["left", "right"] else (h - crop_h)
-        latent_mask_size = (lw - crop_lw) if direction in ["left", "right"] else (lh - crop_lh)
+        crop_w, crop_h = int(w * cfg.crop_ratio), int(h * cfg.crop_ratio)
+        crop_lw, crop_lh = int(lw * cfg.crop_ratio), int(lh * cfg.crop_ratio)
+        mask_size = (w - crop_w) if cfg.direction in ["left", "right"] else (h - crop_h)
+        latent_mask_size = (lw - crop_lw) if cfg.direction in ["left", "right"] else (lh - crop_lh)
         
         # Extract preserved region to initialize stitched image
-        preserved_region = self._extract_old_region(current_image, direction_idx, crop_ratio)
+        preserved_region = self._extract_old_region(current_image, direction_idx, cfg.crop_ratio)
         stitched = preserved_region
         current_latent: torch.Tensor | None = None
 
         # Step 1: Create bbox (normalized)
-        if direction == "right":
-            bbox = torch.tensor([[0.0, crop_ratio, 1.0, 1.0]], device=self.device)
-        elif direction == "left":
-            bbox = torch.tensor([[0.0, 0.0, 1.0, 1.0 - crop_ratio]], device=self.device)
-        elif direction == "down":
-            bbox = torch.tensor([[crop_ratio, 0.0, 1.0, 1.0]], device=self.device)
+        if cfg.direction == "right":
+            bbox = torch.tensor([[0.0, cfg.crop_ratio, 1.0, 1.0]], device=self.device)
+        elif cfg.direction == "left":
+            bbox = torch.tensor([[0.0, 0.0, 1.0, 1.0 - cfg.crop_ratio]], device=self.device)
+        elif cfg.direction == "down":
+            bbox = torch.tensor([[cfg.crop_ratio, 0.0, 1.0, 1.0]], device=self.device)
         else:  # "up"
-            bbox = torch.tensor([[0.0, 0.0, 1.0 - crop_ratio, 1.0]], device=self.device)
+            bbox = torch.tensor([[0.0, 0.0, 1.0 - cfg.crop_ratio, 1.0]], device=self.device)
 
-        run_dir = Path(save_dir) / save_name
+        run_dir = Path(cfg.save_dir) / cfg.save_name
         run_dir.mkdir(parents=True, exist_ok=True)
 
         last_generated_latent: torch.Tensor | None = None
@@ -257,7 +187,7 @@ class OutpaintInferencer(LatentDiffusionInferencer):
         saved_latents: list[str] = []
         saved_images: list[str] = []
 
-        for i in range(iterations):
+        for i in range(cfg.iterations):
             if i == 0:
                 # Step 2: Create masked image
                 mask = torch.zeros_like(current_image)
@@ -282,18 +212,19 @@ class OutpaintInferencer(LatentDiffusionInferencer):
             noisy_latents = self.noise_scheduler.add_noise(
                 masked_latents * latent_mask,
                 noise * latent_mask,
-                torch.tensor(steps, device=self.device),
+                torch.tensor(cfg.steps, device=self.device), # type: ignore
             )
             noisy_latents = masked_latents * (1 - latent_mask) + noisy_latents * latent_mask
             
             # Step 5: Denoising loop
-            self.noise_scheduler.set_timesteps(steps)
+            self.noise_scheduler.set_timesteps(cfg.steps)
             latent_input = noisy_latents
-
+            
+            bbox_encoder = self._require_bbox_encoder()
             condition = torch.cat(
                 [
                     self.cond_proj(masked_latents),
-                    self.bbox_encoder(bbox).unsqueeze(1).expand(-1, 64, -1),
+                    bbox_encoder(bbox).unsqueeze(1).expand(-1, 64, -1),
                 ],
                 dim=-1,
             )
@@ -302,7 +233,7 @@ class OutpaintInferencer(LatentDiffusionInferencer):
                 latent_input = latent_input * latent_mask + masked_latents * (1 - latent_mask)
                 with torch.no_grad():
                     noise_pred = self.unet(latent_input, t, encoder_hidden_states=condition).sample
-                latent_input = self.noise_scheduler.step(noise_pred, t, latent_input).prev_sample
+                latent_input = self.noise_scheduler.step(noise_pred, t, latent_input).prev_sample # type: ignore
                 
             # Step 6: Decode image
             with torch.no_grad():
@@ -311,8 +242,6 @@ class OutpaintInferencer(LatentDiffusionInferencer):
 
             last_generated_latent = generated_latent
             last_generated_img = generated_img
-            
-            #TODO: IS PLOTTING/SAVING THE NEW PATCH STRICTLY NECESSARY
 
             # stitch
             new_patch = self._extract_new_region(generated_img, direction_idx, mask_size)
@@ -336,78 +265,32 @@ class OutpaintInferencer(LatentDiffusionInferencer):
             current_latent = self._cyclic_latent_shift(generated_latent, direction_idx, latent_mask_size)
             
             # Display intermediate
-            if show_plot:
+            if cfg.show_plot:
                 plot_decoded_image(
                     preview=preview_uint8,
                     iteration=i,
-                    figsize=plot_fig_size,
-                    title=plot_title,
+                    figsize=cfg.plot_fig_size,
+                    title=cfg.plot_title,
                 )
 
         stitched_preview_uint8 = (
             ((stitched[0].permute(1, 2, 0).detach().cpu().numpy() * 0.5 + 0.5).clip(0, 1) * 255).astype(np.uint8)
         )
 
-        return InferenceResult(
-            image=last_generated_img if last_generated_img is not None else image_tensor,
-            latents=last_generated_latent if last_generated_latent is not None else (current_latent or torch.empty(0)),
-            extras={
-                "original_file_path": str(original_file_path),
-                "run_dir": str(run_dir),
-                "direction": direction,
-                "crop_ratio": float(crop_ratio),
-                "steps": int(steps),
-                "iterations": int(iterations),
-                "saved_latents": saved_latents,
-                "saved_images": saved_images,
-                "stitched_preview": stitched_preview_uint8,
-            },
-        )
+        return last_generated_latent if last_generated_latent is not None else (current_latent or torch.empty(0))
 
-    def run(
-        self,
-        original_dir: str | Path,
-        save_dir: str | Path,
-        *,
-        save_name: str = "default",
-        steps: int = 200,
-        crop_ratio: float = 0.97,
-        iterations: int = 10,
-        direction: DIRECTION = "right",
-        show_plot: bool = False,
-        plot_title: str | None = None,
-        plot_fig_size: tuple[int, int] | None = None,
-    ) -> list["InferenceResult"]:
-        # TODO: DELETED ATTEMPTS?
-        original_dir, save_dir = self._validate_run_args(
-            original_dir,
-            save_dir,
-            steps=steps,
-            iterations=iterations,
-            crop_ratio=crop_ratio,
-            direction=direction,
-            plot_fig_size=plot_fig_size,
-        )
-        if not original_dir.is_dir():
-            raise FileNotFoundError(f"original_dir is not a directory: {original_dir}")
+    def run(self, cfg: OutpaintRunConfig) -> list[torch.Tensor]:
+        results: list[torch.Tensor] = []
 
-        results: list[InferenceResult] = []
-
-        files = sorted(p for p in original_dir.iterdir() if p.is_file() and p.suffix.lower() == ".png")
+        files = sorted(p for p in cfg.original_dir.iterdir() if p.is_file() and p.suffix.lower() == ".png") # type: ignore
         for fpath in files:
-            per_file_save_name = str(Path(save_name) / fpath.stem)
-            res = self.run_one(
-                original_file_path=fpath,
-                save_dir=save_dir,
+            per_file_save_name = str(Path(cfg.save_name) / fpath.stem)
+            file_cfg = replace(
+                cfg,
+                original_dir=fpath,
                 save_name=per_file_save_name,
-                steps=steps,
-                crop_ratio=crop_ratio,
-                iterations=iterations,
-                direction=direction,
-                show_plot=show_plot,
-                plot_title=plot_title,
-                plot_fig_size=plot_fig_size,
             )
+            res = self.run_one(file_cfg)
             results.append(res)
 
         return results

@@ -2,7 +2,7 @@ import torch
 import torch.nn.functional as F
 from tqdm import tqdm
 from accelerate import Accelerator
-from diffusers import AutoencoderKL, UNet2DConditionModel, DDPMScheduler
+from diffusers import AutoencoderKL, UNet2DConditionModel, DDPMScheduler # type: ignore
 
 from utils.mask_utils import create_latent_mask
 from utils.plot_utils import plot_loss

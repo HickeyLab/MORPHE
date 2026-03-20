@@ -1,39 +1,33 @@
 from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, Optional, Type, TypeVar
+from typing import Any, Generic, Optional, TypeVar
 
 import torch
-from src.disco.core.latent_diffusion.artifact import LatentDiffuserArtifact, LatentDiffusionRuntime
-from src.disco.core.latent_diffusion.strategy.base import DiffusionStrategy
+from disco.core.latent_diffusion.infer.run_config import LatentBaseRunConfig
+from disco.core.latent_diffusion.train.base import LatentTrainStrategy
+from src.disco.core.latent_diffusion.artifact import LatentDiffusionArtifact, LatentDiffusionRuntime
 
 
-T = TypeVar("T", bound="LatentDiffusionInferencer")
-
-@dataclass(frozen=True)
-class InferenceResult:
-    image: torch.Tensor
-    latents: Optional[torch.Tensor] = None
-    extras: dict[str, Any] = None
-    
-class LatentDiffusionInferencer(ABC):
+RunConfigT = TypeVar("RunConfigT", bound=LatentBaseRunConfig)
+TStrategy = TypeVar("TStrategy", bound=LatentTrainStrategy)
+class BaseLatentInferencer(ABC, Generic[RunConfigT, TStrategy]):
     def __init__(
         self,
         *,
-        artifact: LatentDiffuserArtifact,
-        strategy: DiffusionStrategy,
+        artifact: LatentDiffusionArtifact,
+        train_strategy: TStrategy,
         pretrained_path: str = "runwayml/stable-diffusion-v1-5",
         device: torch.device | str | None = None,
         dtype: torch.dtype | None = None,
     ):
-        self.strategy = strategy
-
         rt: LatentDiffusionRuntime = artifact.build_inference_runtime(
-            strategy=strategy,
+            train_strategy=train_strategy,
             pretrained_path=pretrained_path,
             device=device,
             dtype=dtype,
         )
+        self.train_strategy = train_strategy
 
         self.vae = rt.vae
         self.unet = rt.unet
@@ -42,24 +36,28 @@ class LatentDiffusionInferencer(ABC):
         self.bbox_encoder = rt.bbox_encoder
         self.cond_proj = rt.cond_proj
         self.scaling_factor = rt.scaling_factor
-        self.device = device
+        
+        if device is None:
+            self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        else:
+            self.device = torch.device(device)
         
     @classmethod
     def from_artifact(
-        cls: Type[T],
-        artifact: LatentDiffuserArtifact,
+        cls,
+        artifact: LatentDiffusionArtifact,
         *,
-        strategy: DiffusionStrategy,
+        train_strategy: TStrategy,
         pretrained_path: str = "runwayml/stable-diffusion-v1-5",
         device: torch.device | str | None = None,
         dtype: torch.dtype | None = None,
-    ) -> T:
+    ) -> BaseLatentInferencer[RunConfigT, TStrategy]:
         if device is not None:
             device = torch.device(device)
 
         return cls(
             artifact=artifact,
-            strategy=strategy,
+            train_strategy=train_strategy,
             pretrained_path=pretrained_path,
             device=device,
             dtype=dtype,
@@ -67,11 +65,11 @@ class LatentDiffusionInferencer(ABC):
 
 
     @torch.no_grad()
-    def __call__(self, *args: Any, **kwargs: Any) -> InferenceResult:
+    def __call__(self, *args: Any, **kwargs: Any) -> list[torch.Tensor]:
         return self.run(*args, **kwargs)
 
     @abstractmethod
     @torch.no_grad()
-    def run(self, *args: Any, **kwargs: Any) -> InferenceResult:
+    def run(self, cfg: RunConfigT) -> list[torch.Tensor]:
         """Implemented by Gapfill / Inpaint / Slice3D / etc."""
         raise NotImplementedError

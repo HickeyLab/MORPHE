@@ -2,6 +2,7 @@ import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from diffusers import AutoencoderKL # type: ignore
 
 class Transpose(nn.Module):
     def __init__(
@@ -167,3 +168,45 @@ class BBoxEncoder(nn.Module):
 
     def forward(self, bbox: torch.Tensor) -> torch.Tensor:
         return self.encoder(bbox)
+    
+class VAEEncoder(nn.Module):
+    """
+    A lightweight wrapper that loads the Stable Diffusion VAE
+    and exposes an encode() function that outputs latents.
+    """
+
+    def __init__(
+        self, 
+        pretrained_path: str = "runwayml/stable-diffusion-v1-5", 
+        device: torch.device | str | None = None
+    ):
+        super().__init__()
+        if not device:
+            self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        else:
+            self.device = torch.device(device)
+
+        self.vae: AutoencoderKL = AutoencoderKL.from_pretrained(
+            pretrained_path, subfolder="vae"
+        ).to(self.device) # type: ignore
+
+        self.vae.eval()
+        for p in self.vae.parameters():
+            p.requires_grad_(False)
+
+        # Stable Diffusion VAE scaling factor
+        config = self.vae.config
+        if isinstance(config, dict):
+            self.scaling = config.get("scaling_factor", 0.18215)
+        else:
+            self.scaling = getattr(config, "scaling_factor", 0.18215)
+
+    @torch.no_grad()
+    def encode(self, imgs):
+        """
+        imgs:  [B,3,512,512] in [-1,1]
+        return: [B,4,64,64] latent tensor
+        """
+        latents = self.vae.encode(imgs).latent_dist.sample() # type: ignore
+        latents = latents * self.scaling
+        return latents

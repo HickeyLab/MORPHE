@@ -1,46 +1,44 @@
-import os
+from dataclasses import replace
 from pathlib import Path
-from typing import ClassVar, Sequence
+from typing import Sequence
 import numpy as np
 import torch
 from PIL import Image
 from torchvision import transforms
-from src.disco.core.latent_diffusion.artifact import LatentDiffuserArtifact
-from src.disco.core.latent_diffusion.strategy.outpaint import OutpaintDiffusion
+from disco.core.latent_diffusion.infer.base import BaseLatentInferencer 
+from disco.core.latent_diffusion.infer.run_config import GapfillRunConfig
+from disco.core.latent_diffusion.train.outpaint import OutpaintTrainStrategy
+from src.disco.core.latent_diffusion.artifact import LatentDiffusionArtifact
 
 from src.disco.viz.decoded_img import plot_decoded_image
 
-from .base import LatentDiffusionInferencer, InferenceResult
-
-
-class GapfillInferencer(LatentDiffusionInferencer):
-    REQUIRED_STRATEGY_NAME: ClassVar[str] = "outpaint"
-
+class GapfillInferencer(BaseLatentInferencer):
     def __init__(
         self, 
         *, 
-        artifact: LatentDiffuserArtifact, 
-        strategy: OutpaintDiffusion, 
+        artifact: LatentDiffusionArtifact, 
+        train_strategy: OutpaintTrainStrategy, 
         pretrained_path: str = "runwayml/stable-diffusion-v1-5",
         device: torch.device | str | None = None,
         dtype: torch.dtype | None = None,
     ):
         # Require outpaint diffusion strategy
-        if getattr(strategy, "strategy_name", None) != self.REQUIRED_STRATEGY_NAME:
-            raise TypeError(
-                f"GapfillInferencer requires strategy_name='{self.REQUIRED_STRATEGY_NAME}', "
-                f"got {getattr(strategy, 'strategy_name', None)!r}"
-            )
+        if not isinstance(train_strategy, OutpaintTrainStrategy):
+            raise ValueError("GapfillInferencer requires an OutpaintTrainStrategy")
+        
         super().__init__(
             artifact=artifact, 
-            strategy=strategy, 
+            train_strategy=train_strategy, 
             pretrained_path=pretrained_path,
             device=device,
             dtype=dtype,
         )
         
-        self.transform = transforms.Compose([
-            transforms.Resize((strategy.img_size, strategy.img_size)),
+        if self.bbox_encoder is None:
+            raise RuntimeError("Gapfill Inferencer requires a bbox encoder in the artifact runtime")
+        
+        self.transform: torch.Callable[[Image.Image], torch.Tensor] = transforms.Compose([
+            transforms.Resize((train_strategy.img_size, train_strategy.img_size)),
             transforms.ToTensor(),
             transforms.Normalize([0.5] * 3, [0.5] * 3),
         ])
@@ -65,126 +63,10 @@ class GapfillInferencer(LatentDiffusionInferencer):
             mask = ((xx >= x1) & (xx <= x2) & (yy >= y1) & (yy <= y2)).float()
             masks.append(mask)
         return torch.stack(masks).unsqueeze(1)
-    
-    def _validate_run_args(
-        self,
-        original_dir: str | Path,
-        save_dir: str | Path,
-        *,
-        steps: int,
-        iterations: int,
-        plot_fig_size: tuple[int, int] | None,
-    ) -> tuple[Path, Path]:
-        if original_dir is None or save_dir is None:
-            raise RuntimeError(
-                "GapfillInferencer requires original_dir and save_dir but one of them is None."
-            )
-
-        original_dir = Path(original_dir)
-        save_dir = Path(save_dir)
-
-        if not original_dir.exists():
-            raise FileNotFoundError(f"original_dir does not exist: {original_dir}")
-        
-        save_dir.mkdir(parents=True, exist_ok=True)
-
-        if not isinstance(steps, int) or steps <= 0:
-            raise ValueError("`steps` must be a positive integer.")
-
-        if not isinstance(iterations, int) or iterations <= 0:
-            raise ValueError("`iterations` must be a positive integer.")
-
-        if plot_fig_size is not None:
-            if (
-                not isinstance(plot_fig_size, tuple)
-                or len(plot_fig_size) != 2
-                or not all(isinstance(x, int) and x > 0 for x in plot_fig_size)
-            ):
-                raise ValueError(
-                    "`plot_fig_size` must be tuple[int, int] with positive values."
-                )
-
-        if self.vae is None or self.unet is None:
-            raise RuntimeError(
-                "Inferencer requires loaded VAE and UNet."
-            )
-
-        return original_dir, save_dir
-    
-    def _validate_weight_sweep_args(
-        self,
-        prev_path: str | Path,
-        next_path: str | Path,
-        out_dir: str | Path,
-        *,
-        num_inference_steps: int,
-        start: float,
-        end: float,
-        step: float,
-    ) -> tuple[Path, Path, Path]:
-        if prev_path is None or next_path is None or out_dir is None:
-            raise RuntimeError("ThreeDimensionalInferer requires prev_path, next_path, and out_dir but one is None.")
-
-        prev_path = Path(prev_path)
-        next_path = Path(next_path)
-        out_dir = Path(out_dir)
-
-        if not prev_path.exists() or not prev_path.is_file():
-            raise FileNotFoundError(f"prev_path does not exist or is not a file: {prev_path}")
-        if not next_path.exists() or not next_path.is_file():
-            raise FileNotFoundError(f"next_path does not exist or is not a file: {next_path}")
-
-        out_dir.mkdir(parents=True, exist_ok=True)
-
-        if not isinstance(num_inference_steps, int) or num_inference_steps <= 0:
-            raise ValueError("`num_inference_steps` must be a positive integer.")
-
-        if not isinstance(start, (int, float)) or not 0.0 <= float(start) <= 1.0:
-            raise ValueError("`start` must be in [0, 1].")
-
-        if not isinstance(end, (int, float)) or not 0.0 <= float(end) <= 1.0:
-            raise ValueError("`end` must be in [0, 1].")
-
-        if float(start) >= float(end):
-            raise ValueError("`start` must be less than `end`.")
-
-        if not isinstance(step, (int, float)) or float(step) <= 0:
-            raise ValueError("`step` must be a positive float.")
-
-        if float(step) > (float(end) - float(start)):
-            raise ValueError("`step` is larger than the sweep range.")
-
-        if self.vae is None or self.unet is None:
-            raise RuntimeError("Inferencer requires loaded VAE and UNet.")
-        if self.cond_proj is None:
-            raise RuntimeError("Inferencer requires loaded cond_proj.")
-        if self.noise_scheduler is None:
-            raise RuntimeError("Inferencer requires loaded noise_scheduler.")
-
-        return prev_path, next_path, out_dir
 
 
-    def run_one(
-        self,
-        original_file_path: str | Path,
-        save_dir: str | Path,
-        save_name: str = "default",
-        steps: int = 200,
-        iterations: int = 10,
-        show_plot: bool = False,
-        plot_title: str | None = None,
-        plot_fig_size: tuple[int, int] | None = None,
-        bbox: torch.Tensor | None = None,
-    ):
-        original_file_path, save_dir = self._validate_run_args(
-            original_file_path,
-            save_dir,
-            steps=steps,
-            iterations=iterations,
-            plot_fig_size=plot_fig_size
-        )
-        
-        with Image.open(original_file_path) as img:
+    def run_one(self, cfg: GapfillRunConfig):        
+        with Image.open(cfg.original_dir) as img:
             img = img.convert("RGB")
             image_tensor = self.transform(img).unsqueeze(0).to(self.device)
 
@@ -193,15 +75,15 @@ class GapfillInferencer(LatentDiffusionInferencer):
         b, c, h, w = current_image.shape
 
         # Define the central gap bbox in normalized coords
-        bbox = torch.tensor([[0.0, 0.4375, 1.0, 0.5625]], device=self.device) if bbox is None else bbox
+        bbox = torch.tensor([[0.0, 0.4375, 1.0, 0.5625]], device=self.device) if cfg.bbox is None else cfg.bbox
 
         # Initially encode to latent space
         with torch.no_grad():
-            current_latent = self.vae.encode(current_image).latent_dist.sample()
+            current_latent = self.vae.encode(current_image).latent_dist.sample() # type: ignore
             current_latent = current_latent * self.scaling_factor
 
-        for i in range(iterations):
-            print(f"[{i+1}/{iterations}] Filling central gap in latent space")
+        for i in range(cfg.iterations):
+            print(f"[{i+1}/{cfg.iterations}] Filling central gap in latent space")
 
             # Step 1: Create latent mask
             latent_mask = self._create_latent_mask(bbox, current_latent.shape)
@@ -214,17 +96,21 @@ class GapfillInferencer(LatentDiffusionInferencer):
             noisy_latent = self.noise_scheduler.add_noise(
                 masked_latent * latent_mask,
                 noise * latent_mask,
-                torch.tensor(steps)
+                torch.tensor(cfg.steps) # type: ignore
             )
             noisy_latent = masked_latent * (1 - latent_mask) + noisy_latent * latent_mask
 
             # Step 4: Denoising loop
-            self.noise_scheduler.set_timesteps(steps)
+            self.noise_scheduler.set_timesteps(cfg.steps)
             latent_input = noisy_latent
-
+            
+            bbox_encoder = self.bbox_encoder
+            if bbox_encoder is None:
+                raise RuntimeError("GapfillInferencer requires a bbox encoder in the artifact runtime")
+            
             condition = torch.cat([
                 self.cond_proj(masked_latent),
-                self.bbox_encoder(bbox).unsqueeze(1).expand(-1, 64, -1)
+                bbox_encoder.unsqueeze(1).expand(-1, 64, -1)
             ], dim=-1)
 
             cnt = 0
@@ -233,22 +119,22 @@ class GapfillInferencer(LatentDiffusionInferencer):
                 latent_input = latent_input * latent_mask + masked_latent * (1 - latent_mask)
                 with torch.no_grad():
                     noise_pred = self.unet(latent_input, t, encoder_hidden_states=condition).sample
-                latent_input = self.noise_scheduler.step(noise_pred, t, latent_input).prev_sample
-                if cnt == steps - 1:
+                latent_input = self.noise_scheduler.step(noise_pred, t, latent_input).prev_sample # type: ignore
+                if cnt == cfg.steps - 1:
                     generated_latent = latent_input * latent_mask + masked_latent * (1 - latent_mask)  ## SAVE THIS AS JSON FILE AND PUT INTO DECODE INFERENCE
-                    generated_img = self.vae.decode(generated_latent / self.scaling_factor).sample
+                    generated_img = self.vae.decode(generated_latent / self.scaling_factor).sample  # type: ignore
                     preview = ((generated_img[0].permute(1, 2, 0).cpu().numpy() * 0.5 + 0.5).clip(0, 1) * 255).astype(np.uint8)
 
-            if i == iterations - 1:
+            if i == cfg.iterations - 1:
                 # Final decode
                 with torch.no_grad():
                     generated_latent = latent_input * latent_mask + masked_latent * (1 - latent_mask)
-                    generated_img = self.vae.decode(generated_latent / self.scaling_factor).sample
+                    generated_img = self.vae.decode(generated_latent / self.scaling_factor).sample  # type: ignore
                     
                     preview = ((generated_img[0].permute(1, 2, 0).cpu().numpy() * 0.5 + 0.5).clip(0, 1) * 255).astype(np.uint8)
                     
-                    save_dir = Path(save_dir)
-                    run_dir = save_dir / save_name
+                    save_dir = Path(cfg.save_dir)
+                    run_dir = save_dir / cfg.save_name
                     run_dir.mkdir(parents=True, exist_ok=True)
 
                     latent_path = run_dir / f"{i}_latent.pt"
@@ -257,23 +143,15 @@ class GapfillInferencer(LatentDiffusionInferencer):
                     torch.save(generated_latent.detach().cpu(), latent_path)
                     Image.fromarray(preview.astype(np.uint8)).save(image_path)
                     
-                    if show_plot:
+                    if cfg.show_plot:
                         plot_decoded_image(
                             preview=preview,
                             iteration=i,
-                            figsize=plot_fig_size,
-                            title=plot_title
+                            figsize=cfg.plot_fig_size,
+                            title=cfg.plot_title
                         )
                         
-                    return InferenceResult(
-                        image=generated_img,
-                        latents=generated_latent,
-                        extras={
-                            "image_save_path": save_dir,
-                            "preview": preview,
-                            "iteration": i,
-                        },
-                    )
+                    return generated_latent
 
             # Step 5: merge latent
             # extract the newly generated center region from latent_input
@@ -320,107 +198,32 @@ class GapfillInferencer(LatentDiffusionInferencer):
             preview = (decoded_img[0].permute(1, 2, 0).cpu().numpy() * 0.5 + 0.5).clip(0, 1)
             """Image.fromarray((preview * 255).astype(np.uint8)).save(f"iteration_{i+1}.png")"""
             
-            if show_plot:
+            if cfg.show_plot:
                 plot_decoded_image(
                     preview=preview,
                     iteration=i,
-                    figsize=plot_fig_size,
-                    title=plot_title
+                    figsize=cfg.plot_fig_size,
+                    title=cfg.plot_title
                 )
 
         # In case iterations == 0 or loop ends unexpectedly
-        return InferenceResult(
-            image=decoded_img if "decoded_img" in locals() else current_image,
-            latents=current_latent,
-        )
+        return current_latent
         
-    def run(
-        self,
-        original_dir: str | Path,
-        save_dir: str | Path,
-        *,
-        save_name: str = "default",
-        steps: int = 200,
-        iterations: int = 10,
-        show_plot: bool = False,
-        plot_title: str | None = None,
-        plot_fig_size: tuple[int, int] | None = None,
-        bbox: torch.Tensor | None = None,
-    ) -> list["InferenceResult"]:
-        original_dir, save_dir = self._validate_run_args(
-            original_dir,
-            save_dir,
-            steps=steps,
-            iterations=iterations,
-            plot_fig_size=plot_fig_size
-        )
+    def run(self, cfg: GapfillRunConfig) -> list[torch.Tensor]:
+        cfg.validate()
+        
+        results: list[torch.Tensor] = []
 
-        results: list[InferenceResult] = []
-
-        files = sorted(p for p in original_dir.iterdir() if p.is_file() and p.suffix.lower() == ".png")
+        files = sorted(p for p in cfg.original_dir.iterdir() if p.is_file() and p.suffix.lower() == ".png") # type: ignore
 
         for fpath in files:
-            per_file_save_name = str(Path(save_name) / fpath.stem)
-
-            res = self.run_one(
-                original_file_path=fpath,
-                save_dir=save_dir,
+            per_file_save_name = str(Path(cfg.save_name) / fpath.stem)
+            file_cfg = replace(
+                cfg,
+                original_dir=fpath,
                 save_name=per_file_save_name,
-                steps=steps,
-                iterations=iterations,
-                show_plot=show_plot,
-                plot_title=plot_title,
-                plot_fig_size=plot_fig_size,
-                bbox=bbox,
             )
-
-            if res.extras is not None:
-                res.extras.setdefault("original_file_path", str(fpath))
+            res = self.run_one(file_cfg)
             results.append(res)
 
         return results
-    
-    @torch.no_grad()
-    def run_weight_sweep(
-        self,
-        *,
-        prev_path: str | Path,
-        next_path: str | Path,
-        out_dir: str | Path = "./outputs",
-        num_inference_steps: int = 200,
-        start: float = 0.1,
-        end: float = 0.9,
-        step: float = 0.1,
-    ):
-        prev_path, next_path, out_dir = self._validate_weight_sweep_args(
-            prev_path=prev_path,
-            next_path=next_path,
-            out_dir=out_dir,
-            num_inference_steps=num_inference_steps,
-            start=start,
-            end=end,
-            step=step
-        )
-
-        w = start
-        while w <= end + 1e-8:
-            w_prev = round(w, 6)
-            w_next = 1.0 - w_prev
-
-            lat_name = f"{w_prev:.1f}_{w_next:.1f}.pt"
-            png_name = f"mid_{w_prev:.3f}_{w_next:.3f}.png"
-
-            self.run_one(
-                prev_path=prev_path,
-                next_path=next_path,
-                out_dir=out_dir,
-                num_inference_steps=num_inference_steps,
-                w_prev=w_prev,
-                w_next=w_next,
-                save_latents_name=lat_name,
-                save_png_name=png_name,
-            )
-
-            print(f"Saved: {lat_name}, {png_name}")
-
-            w += step

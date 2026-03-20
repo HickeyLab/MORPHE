@@ -1,10 +1,10 @@
 import torch
 from pathlib import Path
 
-from src.disco.core.latent_diffusion.diffusion_trainer import DiffusionTrainer
-from src.disco.core.latent_diffusion.artifact import LatentDiffuserArtifact
+from disco.core.latent_diffusion.train.diffusion_trainer import DiffusionTrainer
+from src.disco.core.latent_diffusion.artifact import LatentDiffusionArtifact
 from src.disco.core.latent_diffusion.strategy.arbitrary_inpainting import ArbitraryInpainting
-from src.disco.core.latent_diffusion.infer.arbitrary_inpainting import ArbitraryInpaintingInferer
+from disco.core.latent_diffusion.infer.inpaint import ArbitraryInpaintingInferer
 
 
 # -------------------------------------------------------
@@ -66,7 +66,7 @@ def inference():
     if not artifact_path.exists():
         raise RuntimeError("Artifact not found. Train first.")
 
-    artifact = LatentDiffuserArtifact.load(artifact_path)
+    artifact = LatentDiffusionArtifact.load(artifact_path)
 
     strategy = ArbitraryInpainting(
         img_size=512,
