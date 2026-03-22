@@ -1,11 +1,35 @@
 from typing import Any, Sequence
+
 import pandas as pd
 from sklearn.neighbors import NearestNeighbors
-from torch_geometric.data import Dataset, Data
 import torch
+from torch_geometric.data import Data, Dataset
 
 
 class RegionGraphDataset(Dataset):
+    """
+    PyTorch Geometric dataset that groups rows by region and builds one
+    k-nearest-neighbor graph per region.
+
+    Each graph uses the rows within a single region as nodes, the selected
+    feature columns as node features, and spatial nearest-neighbor
+    relationships from ``pos_cols`` as edges. When ``label_col`` is provided,
+    labels are encoded to integer class indices and attached to each graph's
+    ``y`` tensor.
+
+    Attributes:
+        df: Copy of the input dataframe with a reset integer index.
+        feature_cols: Node feature column names.
+        pos_cols: Position column names used to construct the KNN graph.
+        label_col: Optional label column name.
+        region_col: Column that identifies which rows belong to the same region.
+        k_neighbors: Number of nearest neighbors to connect for each node.
+        classes_: Ordered class names used for label encoding, or ``None`` when
+            labels are not used.
+        region_ids: Unique region identifiers discovered in the dataframe.
+        data_list: List of per-region PyG ``Data`` objects.
+    """
+
     def __init__(
         self,
         df: pd.DataFrame,
@@ -16,20 +40,29 @@ class RegionGraphDataset(Dataset):
         pos_cols: Sequence[str] = ("x", "y"),
         k_neighbors: int = 20,
         classes_: Sequence[str] | None = None,
-    ):
-        super().__init__()
+    ) -> None:
+        """
+        Initialize the dataset and precompute one graph per region.
 
-        # ----------------------------
-        # Validate inputs first
-        # ----------------------------
-        self._validate_inputs(
-            df=df,
-            feature_cols=feature_cols,
-            label_col=label_col,
-            region_col=region_col,
-            pos_cols=pos_cols,
-            k_neighbors=k_neighbors,
-        )
+        Args:
+            df: Input dataframe containing features, coordinates, region IDs,
+                and optionally labels.
+            feature_cols: Column names to use as node features.
+            label_col: Optional column containing node labels. If ``None``,
+                labels are omitted and graphs are built for inference-only use.
+            region_col: Column name that groups rows into regions, where each
+                region becomes a separate graph.
+            pos_cols: Coordinate column names used to compute nearest neighbors.
+            k_neighbors: Number of nearest neighbors to connect per node.
+            classes_: Optional fixed class ordering for label encoding. This is
+                useful at inference time to ensure labels align with the
+                training artifact.
+
+        Raises:
+            ValueError: If ``label_col`` contains labels not present in
+                ``classes_`` when an explicit class list is provided.
+        """
+        super().__init__()
 
         # Reset index to ensure row_idx correctness
         self.df = df.reset_index(drop=True)
@@ -42,11 +75,8 @@ class RegionGraphDataset(Dataset):
         self.region_col = str(region_col)
         self.k_neighbors = int(k_neighbors)
 
-        # ----------------------------
         # Label encoding (training only)
-        # ----------------------------
         if self.label_col is not None:
-
             if classes_ is None:
                 self.classes_ = sorted(
                     self.df[self.label_col].astype(str).unique().tolist()
@@ -64,14 +94,11 @@ class RegionGraphDataset(Dataset):
         else:
             self.classes_ = None
 
-        # ----------------------------
         # Build region graphs
-        # ----------------------------
         self.region_ids = self.df[self.region_col].unique()
-        self.data_list = []
+        self.data_list: list[Data] = []
 
         for region_id in self.region_ids:
-
             region_df = self.df[self.df[self.region_col] == region_id]
 
             features = region_df.loc[:, self.feature_cols].values
@@ -80,12 +107,9 @@ class RegionGraphDataset(Dataset):
 
             num_nodes = features.shape[0]
 
-            # ----------------------------
             # Build KNN graph
-            # ----------------------------
             if num_nodes <= 1:
                 edge_index = torch.empty((2, 0), dtype=torch.long)
-
             else:
                 knn = NearestNeighbors(
                     n_neighbors=min(self.k_neighbors + 1, num_nodes),
@@ -109,9 +133,7 @@ class RegionGraphDataset(Dataset):
                     dim=1,
                 ).unique(dim=1)
 
-            # ----------------------------
             # Create PyG Data object
-            # ----------------------------
             x = torch.tensor(features, dtype=torch.float32)
 
             data = Data(
@@ -129,14 +151,31 @@ class RegionGraphDataset(Dataset):
 
             self.data_list.append(data)
 
-    # -------------------------------------------------
-    # Required Dataset methods
-    # -------------------------------------------------
+    def __len__(self) -> int:
+        """
+        Return the number of region graphs in the dataset.
 
-    def __len__(self):
+        Returns:
+            The number of precomputed ``Data`` objects, one per region.
+        """
         return len(self.data_list)
 
     def __getitem__(self, idx: Any) -> Data:
+        """
+        Return a single region graph by index.
+
+        Scalar ``torch.Tensor`` indices are accepted for compatibility with
+        PyTorch-style indexing and converted to Python integers.
+
+        Args:
+            idx: Dataset index as an integer-like value or a scalar tensor.
+
+        Returns:
+            The region-level PyG ``Data`` object at the requested index.
+
+        Raises:
+            TypeError: If ``idx`` is a non-scalar tensor.
+        """
         if isinstance(idx, torch.Tensor):
             if idx.ndim != 0:
                 raise TypeError("RegionGraphDataset only supports scalar indexing.")
@@ -145,62 +184,3 @@ class RegionGraphDataset(Dataset):
             idx = int(idx)
 
         return self.data_list[idx]
-
-    # -------------------------------------------------
-    # Validation
-    # -------------------------------------------------
-
-    def _validate_inputs(
-        self,
-        df: pd.DataFrame,
-        feature_cols: Sequence[str],
-        label_col: str | None,
-        region_col: str,
-        pos_cols: Sequence[str],
-        k_neighbors: int,
-    ) -> None:
-
-        if df is None or not isinstance(df, pd.DataFrame):
-            raise TypeError("df must be a pandas DataFrame.")
-
-        if df.empty:
-            raise ValueError("df is empty.")
-
-        if not feature_cols:
-            raise ValueError("feature_cols must be non-empty.")
-
-        if len(set(feature_cols)) != len(feature_cols):
-            raise ValueError("feature_cols contains duplicates.")
-
-        if k_neighbors < 1:
-            raise ValueError("k_neighbors must be >= 1.")
-
-        # Required columns
-        required = [region_col, *pos_cols, *feature_cols]
-
-        if label_col is not None:
-            required.append(label_col)
-
-        missing = [c for c in required if c not in df.columns]
-        if missing:
-            raise KeyError(f"Missing required columns: {sorted(set(missing))}")
-
-        # NaN check
-        check_cols = [region_col, *pos_cols, *feature_cols]
-
-        if df[check_cols].isna().any().any():
-            raise ValueError("region/pos/feature columns contain NaNs.")
-
-        if label_col is not None and df[label_col].isna().any():
-            raise ValueError(f"label_col '{label_col}' contains NaNs.")
-
-        # Numeric validation
-        if not all(pd.api.types.is_numeric_dtype(df[c]) for c in pos_cols):
-            raise TypeError("pos_cols must be numeric.")
-
-        non_numeric = [
-            c for c in feature_cols
-            if not pd.api.types.is_numeric_dtype(df[c])
-        ]
-        if non_numeric:
-            raise TypeError(f"Non-numeric feature columns: {non_numeric}")

@@ -11,6 +11,7 @@ class GCNNTrainerConfig:
     region_col: str = "unique_region"
     pos_cols: tuple[str, str] = ("x", "y")
     k_neighbors: int = 20
+    batch_size: int = 1
 
     # model hyperparams
     hidden_channels: int = 768
@@ -22,8 +23,12 @@ class GCNNTrainerConfig:
     lr: float = 1e-4
     weight_decay: float = 1e-5
     epochs: int = 40
+    
+    def __post_init__(self) -> None:
+        self.validate()
 
     def validate(self) -> None:
+        # dataset/schema
         if not isinstance(self.label_col, str) or not self.label_col:
             raise TypeError("label_col must be a non-empty str.")
         if not isinstance(self.region_col, str) or not self.region_col:
@@ -40,7 +45,13 @@ class GCNNTrainerConfig:
             raise TypeError("k_neighbors must be an int.")
         if self.k_neighbors < 1:
             raise ValueError("k_neighbors must be >= 1.")
-
+        
+        if not isinstance(self.batch_size, int):
+            raise TypeError(f"batch_size must be an int, got {type(self.batch_size)}")
+        if self.batch_size <= 0:
+            raise ValueError("batch_size must be > 0")
+        
+        # dataset/schema
         if not isinstance(self.hidden_channels, int):
             raise TypeError("hidden_channels must be an int.")
         if self.hidden_channels < 1:
@@ -61,6 +72,7 @@ class GCNNTrainerConfig:
         if self.K < 1:
             raise ValueError("K must be >= 1.")
 
+        # optimization
         if not isinstance(self.lr, (int, float)):
             raise TypeError("lr must be a float > 0.")
         if not (float(self.lr) > 0.0):
