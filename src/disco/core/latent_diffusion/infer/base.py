@@ -1,75 +1,68 @@
 from __future__ import annotations
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
-from typing import Any, Generic, Optional, TypeVar
+from typing import Any, Generic, Self, TypeVar
 
 import torch
-from disco.core.latent_diffusion.infer.run_config import LatentBaseRunConfig
-from disco.core.latent_diffusion.train.base import LatentTrainStrategy
-from src.disco.core.latent_diffusion.artifact import LatentDiffusionArtifact, LatentDiffusionRuntime
+from diffusers import AutoencoderKL # type: ignore
 
+from disco.core.latent_diffusion.infer.run_config import LatentBaseRunConfig
+from disco.utils import resolve_device, resolve_dtype
+from disco.core.latent_diffusion.artifact import LatentDiffusionArtifact
+
+def _get_scaling_factor(vae: AutoencoderKL) -> float:
+    return float(getattr(getattr(vae, "config", None), "scaling_factor", 0.18215))
 
 RunConfigT = TypeVar("RunConfigT", bound=LatentBaseRunConfig)
-TStrategy = TypeVar("TStrategy", bound=LatentTrainStrategy)
-class BaseLatentInferencer(ABC, Generic[RunConfigT, TStrategy]):
+class BaseLatentInferencer(ABC, Generic[RunConfigT]):
     def __init__(
         self,
         *,
         artifact: LatentDiffusionArtifact,
-        train_strategy: TStrategy,
-        pretrained_path: str = "runwayml/stable-diffusion-v1-5",
         device: torch.device | str | None = None,
         dtype: torch.dtype | None = None,
-    ):
-        rt: LatentDiffusionRuntime = artifact.build_inference_runtime(
-            train_strategy=train_strategy,
-            pretrained_path=pretrained_path,
-            device=device,
-            dtype=dtype,
-        )
-        self.train_strategy = train_strategy
-
-        self.vae = rt.vae
-        self.unet = rt.unet
-        self.noise_scheduler = rt.noise_scheduler
-        self.coord_encoder = rt.coord_encoder
-        self.bbox_encoder = rt.bbox_encoder
-        self.cond_proj = rt.cond_proj
-        self.scaling_factor = rt.scaling_factor
+    ) -> None:
+        self.artifact = artifact
+        self.device = resolve_device(device)
+        self.dtype = resolve_dtype(self.device, dtype)
         
-        if device is None:
-            self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        else:
-            self.device = torch.device(device)
+        (
+            self.unet,
+            self.vae,
+            self.cond_encoder,
+            self.coord_encoder,
+            self.bbox_encoder,
+            self.noise_scheduler,
+        ) = self.artifact.architecture.build_components(
+            device=self.device,
+            dtype=self.dtype,
+        )
+        
+        self.unet.eval()
+        self.vae.eval()
+        self.cond_encoder.eval()
+        if self.coord_encoder is not None:
+            self.coord_encoder.eval()
+        if self.bbox_encoder is not None:
+            self.bbox_encoder.eval()
+            
+        self.scaling_factor = _get_scaling_factor(self.vae)
         
     @classmethod
     def from_artifact(
         cls,
         artifact: LatentDiffusionArtifact,
         *,
-        train_strategy: TStrategy,
-        pretrained_path: str = "runwayml/stable-diffusion-v1-5",
         device: torch.device | str | None = None,
         dtype: torch.dtype | None = None,
-    ) -> BaseLatentInferencer[RunConfigT, TStrategy]:
-        if device is not None:
-            device = torch.device(device)
-
+    ) -> Self:
         return cls(
             artifact=artifact,
-            train_strategy=train_strategy,
-            pretrained_path=pretrained_path,
             device=device,
             dtype=dtype,
         )
 
-
-    @torch.no_grad()
-    def __call__(self, *args: Any, **kwargs: Any) -> list[torch.Tensor]:
-        return self.run(*args, **kwargs)
-
     @abstractmethod
     @torch.no_grad()
-    def run(self, cfg: RunConfigT) -> list[torch.Tensor]:
-        """Implemented by Gapfill / Inpaint / Slice3D / etc."""
+    def _run_one_from_config(self, cfg: RunConfigT) -> torch.Tensor:
+        """Run inference from a validated task-specific config."""
         raise NotImplementedError

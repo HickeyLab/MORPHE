@@ -2,130 +2,81 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any
 
 import torch
-from diffusers import DDPMScheduler, UNet2DConditionModel, AutoencoderKL, DDPMScheduler  # type: ignore
-from disco.core.latent_diffusion.train.base import LatentTrainStrategy
 
-from src.disco.core.latent_diffusion.model import CondEncoder, CoordEncoder, CondEncoder3D, BBoxEncoder
+from disco.config import InferenceMode
+from disco.core.latent_diffusion.architecture import LatentArchitectureSpec
 
-@dataclass(frozen=True)
-class LatentDiffusionRuntime:
-    vae: AutoencoderKL
-    unet: UNet2DConditionModel
-    noise_scheduler: DDPMScheduler
-    cond_proj: CondEncoder | CondEncoder3D
-    coord_encoder: CoordEncoder | None
-    bbox_encoder: BBoxEncoder | None
-    scaling_factor: float
 
-    
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class LatentDiffusionArtifact:
-    # TODO: CHECK WHETHER ARTIFACT SHOULD DEPEND ON INFERNCE MODE
-    unet_state_dict: Mapping[str, torch.Tensor]
-    cond_encoder_state_dict: Mapping[str, torch.Tensor]
-    coord_encoder_state_dict: Mapping[str, torch.Tensor] | None
-    bbox_encoder_state_dict: Mapping[str, torch.Tensor] | None
-    unet_config: Mapping[str, Any]
-    cond_encoder_kwargs: Mapping[str, Any]
-    coord_encoder_kwargs: Mapping[str, Any] | None
-    bbox_encoder_kwargs: Mapping[str, Any] | None
+    """
+    Serializable artifact for reconstructing a trained latent diffusion model.
 
-    def build_components(
-        self,
-        *,
-        train_strategy: LatentTrainStrategy,
-        device: torch.device | str | None = None,
-        dtype: torch.dtype | None = None,
-    ) -> tuple[UNet2DConditionModel, CondEncoder | CondEncoder3D, CoordEncoder | None, BBoxEncoder | None]:
-        if device is None:
-            device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        else:
-            device = torch.device(device)
+    The artifact stores trained weights plus the architecture specification
+    required to rebuild the exact model structure for inference.
+    """
 
-        unet_obj = UNet2DConditionModel.from_config(dict(self.unet_config))
-        if isinstance(unet_obj, tuple):
-            unet, _ = unet_obj
-        else:
-            unet = unet_obj
+    unet_state_dict: dict[str, torch.Tensor]
+    cond_encoder_state_dict: dict[str, torch.Tensor]
+    coord_encoder_state_dict: dict[str, torch.Tensor] | None
+    bbox_encoder_state_dict: dict[str, torch.Tensor] | None
+    architecture: LatentArchitectureSpec
+    inference_mode: InferenceMode
     
-        unet.load_state_dict(self.unet_state_dict, strict=True)
-        
-        requires_coord = bool(getattr(train_strategy, "requires_coord_encoder", False))
-        requires_bbox = bool(getattr(train_strategy, "requires_bbox_encoder", False))
-        coord_enc = None
-        bbox_enc = None
-        if requires_bbox:
-            if self.bbox_encoder_state_dict is None or self.bbox_encoder_kwargs is None:
-                raise ValueError(
-                    "Artifact missing CoordEncoder data but strategy.requires_coord_encoder=True"
-                )
-            bbox_enc = BBoxEncoder(**dict(self.bbox_encoder_kwargs))
-            bbox_enc.load_state_dict(self.bbox_encoder_state_dict, strict=True)
-        elif requires_coord:
-            if self.coord_encoder_state_dict is None or self.coord_encoder_kwargs is None:
-                raise ValueError(
-                    "Artifact missing CoordEncoder data but strategy.requires_coord_encoder=True"
-                )
-            coord_enc = CoordEncoder(**dict(self.coord_encoder_kwargs))
-            coord_enc.load_state_dict(self.coord_encoder_state_dict, strict=True)
-        
-        cond_enc = CondEncoder3D(**dict(self.cond_encoder_kwargs)) if train_strategy.three_dimensional_cond_encoder else CondEncoder(**dict(self.cond_encoder_kwargs))
-        cond_enc.load_state_dict(self.cond_encoder_state_dict, strict=True)
+    img_size: int | None = None  # Optional image size metadata for inference preprocessing (only inpainting/outpainting)
 
-        if dtype is not None:
-            unet = unet.to(device=device, dtype=dtype) # type: ignore
-            cond_enc = cond_enc.to(device=device, dtype=dtype)
-            if coord_enc is not None:
-                coord_enc = coord_enc.to(device=device, dtype=dtype)
-            if bbox_enc is not None:
-                bbox_enc = bbox_enc.to(device=device, dtype=dtype)
-        else:
-            unet = unet.to(device) # type: ignore
-            cond_enc = cond_enc.to(device)
-            if coord_enc is not None:
-                coord_enc = coord_enc.to(device)
-            if bbox_enc is not None:
-                bbox_enc = bbox_enc.to(device)
+    _REQUIRED_KEYS = (
+        "unet_state_dict",
+        "cond_encoder_state_dict",
+        "coord_encoder_state_dict",
+        "bbox_encoder_state_dict",
+        "architecture",
+        "inference_mode",
+        "img_size",
+    )
 
-        unet.eval()
-        cond_enc.eval()
-        if coord_enc is not None:
-            coord_enc.eval()
-        if bbox_enc is not None:
-            bbox_enc.eval()
+    @staticmethod
+    def _state_dict_to_cpu(
+        state_dict: dict[str, torch.Tensor] | None,
+    ) -> dict[str, torch.Tensor] | None:
+        """
+        Return a CPU, detached copy of a state dict for device-agnostic serialization.
+        """
+        if state_dict is None:
+            return None
 
-        return unet, cond_enc, coord_enc, bbox_enc
+        return {
+            key: value.detach().cpu()
+            for key, value in state_dict.items()
+        }
 
     def save(self, path: str | Path) -> None:
+        """
+        Save the artifact payload to disk.
+        """
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
 
         payload: dict[str, Any] = {
-            "unet_state_dict": {k: v.detach().cpu() for k, v in self.unet_state_dict.items()},
-            "cond_encoder_state_dict": {k: v.detach().cpu() for k, v in self.cond_encoder_state_dict.items()},
-            "coord_encoder_state_dict": (
-                None
-                if self.coord_encoder_state_dict is None
-                else {k: v.detach().cpu() for k, v in self.coord_encoder_state_dict.items()}
-            ),
-            "bbox_encoder_state_dict": (
-                None
-                if self.bbox_encoder_state_dict is None
-                else {k: v.detach().cpu() for k, v in self.bbox_encoder_state_dict.items()}
-            ),
-            "unet_config": dict(self.unet_config),
-            "cond_encoder_kwargs": dict(self.cond_encoder_kwargs),
-            "coord_encoder_kwargs": None if self.coord_encoder_kwargs is None else dict(self.coord_encoder_kwargs),
-            "bbox_encoder_kwargs": None if self.bbox_encoder_kwargs is None else dict(self.bbox_encoder_kwargs),
+            "unet_state_dict": self._state_dict_to_cpu(self.unet_state_dict),
+            "cond_encoder_state_dict": self._state_dict_to_cpu(self.cond_encoder_state_dict),
+            "coord_encoder_state_dict": self._state_dict_to_cpu(self.coord_encoder_state_dict),
+            "bbox_encoder_state_dict": self._state_dict_to_cpu(self.bbox_encoder_state_dict),
+            "architecture": self.architecture.to_dict(),
+            "inference_mode": self.inference_mode.value,
+            "img_size": self.img_size,
         }
 
         torch.save(payload, str(path))
 
-    @staticmethod
-    def load(path: str | Path) -> "LatentDiffusionArtifact":
+    @classmethod
+    def load(cls, path: str | Path) -> "LatentDiffusionArtifact":
+        """
+        Load a serialized artifact from disk and validate its required fields.
+        """
         path = Path(path)
 
         try:
@@ -133,81 +84,35 @@ class LatentDiffusionArtifact:
         except TypeError:
             payload = torch.load(str(path), map_location="cpu")
 
-        required = (
-            "unet_state_dict",
-            "cond_encoder_state_dict",
-            "coord_encoder_state_dict",
-            "bbox_encoder_state_dict",
-            "unet_config",
-            "cond_encoder_kwargs",
-            "coord_encoder_kwargs",
-            "bbox_encoder_kwargs",
-        )
-        for k in required:
-            if k not in payload:
-                raise ValueError(f"Invalid LatentDiffusionArtifact file: missing key '{k}'")
+        if not isinstance(payload, dict):
+            raise ValueError("Invalid LatentDiffusionArtifact file: payload must be a dictionary.")
 
-        coord_sd = payload["coord_encoder_state_dict"]
-        coord_kwargs = payload["coord_encoder_kwargs"]
-        bbox_sd = payload["bbox_encoder_state_dict"]
-        bbox_kwargs = payload["bbox_encoder_kwargs"]
+        for key in cls._REQUIRED_KEYS:
+            if key not in payload:
+                raise ValueError(
+                    f"Invalid LatentDiffusionArtifact file: missing key '{key}'."
+                )
 
-        return LatentDiffusionArtifact(
-            unet_state_dict=payload["unet_state_dict"],
-            cond_encoder_state_dict=payload["cond_encoder_state_dict"],
-            coord_encoder_state_dict=None if coord_sd is None else coord_sd,
-            bbox_encoder_state_dict=None if bbox_sd is None else bbox_sd,
-            unet_config=dict(payload["unet_config"]),
-            cond_encoder_kwargs=dict(payload["cond_encoder_kwargs"]),
-            coord_encoder_kwargs=None if coord_kwargs is None else dict(coord_kwargs),
-            bbox_encoder_kwargs=None if bbox_kwargs is None else dict(bbox_kwargs),
-        )
-    
-    def build_inference_runtime(
-        self,
-        *,
-        train_strategy: LatentTrainStrategy,
-        pretrained_path: str = "runwayml/stable-diffusion-v1-5",
-        device: torch.device | str | None = None,
-        dtype: torch.dtype | None = None,
-    ) -> LatentDiffusionRuntime:
-        """
-        Build everything needed for inference:
-          - VAE from diffusers pretrained
-          - Scheduler from diffusers pretrained
-          - UNet/CondEncoder/CoordEncoder from artifact weights/config
-        """
-        if device is None:
-            device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        else:
-            device = torch.device(device)
+        architecture_payload = payload["architecture"]
+        if not isinstance(architecture_payload, dict):
+            raise ValueError(
+                "Invalid LatentDiffusionArtifact file: 'architecture' must be a dictionary."
+            )
 
-        unet, cond_enc, coord_enc, bbox_enc = self.build_components(
-            train_strategy=train_strategy, device=device, dtype=dtype,
-        )
-
-        vae = AutoencoderKL.from_pretrained(pretrained_path, subfolder="vae").to(device) # type: ignore
-        if dtype is not None:
-            vae = vae.to(device=device, dtype=dtype) # type: ignore
-        vae.eval()
-
-        scaling_factor = float(getattr(getattr(vae, "config", None), "scaling_factor", 0.18215))
-
-        noise_scheduler = DDPMScheduler.from_pretrained(pretrained_path, subfolder="scheduler")
-
-        # 3D Imputation only
-        config = noise_scheduler.config
-        if isinstance(config, dict):
-            config["prediction_type"] = "sample"
-        else:
-            config.prediction_type = "sample"
-
-        return LatentDiffusionRuntime(
-            vae=vae,
-            unet=unet,
-            cond_proj=cond_enc,
-            coord_encoder=coord_enc,
-            bbox_encoder=bbox_enc,
-            noise_scheduler=noise_scheduler,
-            scaling_factor=scaling_factor,
+        return cls(
+            unet_state_dict=dict(payload["unet_state_dict"]),
+            cond_encoder_state_dict=dict(payload["cond_encoder_state_dict"]),
+            coord_encoder_state_dict=(
+                None
+                if payload["coord_encoder_state_dict"] is None
+                else dict(payload["coord_encoder_state_dict"])
+            ),
+            bbox_encoder_state_dict=(
+                None
+                if payload["bbox_encoder_state_dict"] is None
+                else dict(payload["bbox_encoder_state_dict"])
+            ),
+            architecture=LatentArchitectureSpec.from_dict(architecture_payload),
+            inference_mode=InferenceMode(payload["inference_mode"]),
+            img_size=payload["img_size"],
         )

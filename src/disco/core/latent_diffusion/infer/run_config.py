@@ -20,7 +20,7 @@ class LatentBaseRunConfig:
 
 @dataclass(slots=True)
 class InpaintRunConfig(LatentBaseRunConfig):
-    image_dir: str | Path
+    input_dir: str | Path
     mask_dir: str | Path
     num_steps: int = 200
     show_plot: bool = False
@@ -28,11 +28,11 @@ class InpaintRunConfig(LatentBaseRunConfig):
     plot_fig_size: tuple[int, int] = (6,6)
 
     def validate(self) -> None:
-        self.image_dir = Path(self.image_dir)
+        self.input_dir = Path(self.input_dir)
         self.mask_dir = Path(self.mask_dir)
 
-        if not self.image_dir.exists():
-            raise FileNotFoundError(f"image_dir does not exist: {self.image_dir}")
+        if not self.input_dir.exists():
+            raise FileNotFoundError(f"input_dir does not exist: {self.input_dir}")
         if not self.mask_dir.exists():
             raise FileNotFoundError(f"mask_dir does not exist: {self.mask_dir}")
 
@@ -60,10 +60,10 @@ class InpaintRunConfig(LatentBaseRunConfig):
 
 @dataclass(slots=True)
 class GapfillRunConfig(LatentBaseRunConfig):
-    original_dir: str | Path
+    input_dir: str | Path
     save_dir: str | Path
     save_name: str = "default"
-    steps: int = 200
+    num_steps: int = 200
     iterations: int = 10
     show_plot: bool = False
     plot_title: str | None = None
@@ -72,27 +72,29 @@ class GapfillRunConfig(LatentBaseRunConfig):
     
     def __post_init__(self):
         if self.plot_title is None:
-            self.plot_title = f"Gapfill ({self.iterations} iterations, {self.steps} steps)"
+            self.plot_title = f"Gapfill ({self.iterations} iterations, {self.num_steps} num_steps)"
             
-        self.original_dir = Path(self.original_dir)
+        self.input_dir = Path(self.input_dir)
         self.save_dir = Path(self.save_dir)
+        
+        self.validate()
 
     def validate(self) -> None:
-        self.original_dir = Path(self.original_dir)
+        self.input_dir = Path(self.input_dir)
         self.save_dir = Path(self.save_dir)
 
-        if not self.original_dir.exists():
-            raise FileNotFoundError(f"original_dir does not exist: {self.original_dir}")
+        if not self.input_dir.exists():
+            raise FileNotFoundError(f"input_dir does not exist: {self.input_dir}")
 
         if not isinstance(self.save_name, str):
             raise TypeError("save_name must be a str.")
         if not self.save_name.strip():
             raise ValueError("save_name must be non-empty.")
 
-        if not isinstance(self.steps, int):
-            raise TypeError("steps must be an int.")
-        if self.steps < 1:
-            raise ValueError("steps must be >= 1.")
+        if not isinstance(self.num_steps, int):
+            raise TypeError("num_steps must be an int.")
+        if self.num_steps < 1:
+            raise ValueError("num_steps must be >= 1.")
 
         if not isinstance(self.iterations, int):
             raise TypeError("iterations must be an int.")
@@ -123,37 +125,37 @@ class GapfillRunConfig(LatentBaseRunConfig):
 
 @dataclass(slots=True)
 class OutpaintRunConfig(LatentBaseRunConfig):
-    original_dir: str | Path
+    input_dir: str | Path
     save_dir: str | Path
     save_name: str = "default"
-    steps: int = 200
+    num_steps: int = 200
     crop_ratio: float = 0.97
     iterations: int = 10
-    direction: DIRECTION = "right"
+    direction: str = "right"
     show_plot: bool = False
     plot_title: str | None = None
     plot_fig_size: tuple[int, int] = (6,6)
     
     def __post_init__(self):
         if self.plot_title is None:
-            self.plot_title = f"Gapfill ({self.iterations} iterations, {self.steps} steps)"
+            self.plot_title = f"Outpaint ({self.iterations} iterations, {self.num_steps} num_steps)"
 
     def validate(self) -> None:
-        self.original_dir = Path(self.original_dir)
+        self.input_dir = Path(self.input_dir)
         self.save_dir = Path(self.save_dir)
 
-        if not self.original_dir.exists():
-            raise FileNotFoundError(f"original_dir does not exist: {self.original_dir}")
+        if not self.input_dir.exists():
+            raise FileNotFoundError(f"input_dir does not exist: {self.input_dir}")
 
         if not isinstance(self.save_name, str):
             raise TypeError("save_name must be a str.")
         if not self.save_name.strip():
             raise ValueError("save_name must be non-empty.")
 
-        if not isinstance(self.steps, int):
-            raise TypeError("steps must be an int.")
-        if self.steps < 1:
-            raise ValueError("steps must be >= 1.")
+        if not isinstance(self.num_steps, int):
+            raise TypeError("num_steps must be an int.")
+        if self.num_steps < 1:
+            raise ValueError("num_steps must be >= 1.")
 
         if not isinstance(self.crop_ratio, (int, float)):
             raise TypeError("crop_ratio must be a float.")
@@ -188,8 +190,8 @@ class OutpaintRunConfig(LatentBaseRunConfig):
         
 @dataclass(slots=True)
 class ThreeDimImputationRunConfig(LatentBaseRunConfig):
-    prev_path: str | Path
-    next_path: str | Path
+    prev_img_path: str | Path
+    next_img_path: str | Path
     out_dir: str | Path
     num_inference_steps: int = 200
     w_prev: float = 0.5
@@ -198,14 +200,14 @@ class ThreeDimImputationRunConfig(LatentBaseRunConfig):
     save_png_name: str = "output.png"
 
     def validate(self) -> None:
-        self.prev_path = Path(self.prev_path)
-        self.next_path = Path(self.next_path)
+        self.prev_img_path = Path(self.prev_img_path)
+        self.next_img_path = Path(self.next_img_path)
         self.out_dir = Path(self.out_dir)
         
-        if not self.prev_path.exists():
-            raise FileNotFoundError(f"prev_path does not exist: {self.prev_path}")
-        if not self.next_path.exists():
-            raise FileNotFoundError(f"next_path does not exist: {self.next_path}")
+        if not self.prev_img_path.exists():
+            raise FileNotFoundError(f"prev_img_path does not exist: {self.prev_img_path}")
+        if not self.next_img_path.exists():
+            raise FileNotFoundError(f"next_img_path does not exist: {self.next_img_path}")
 
         if not isinstance(self.num_inference_steps, int):
             raise TypeError("num_inference_steps must be an int.")
@@ -216,10 +218,10 @@ class ThreeDimImputationRunConfig(LatentBaseRunConfig):
             raise TypeError("w_prev must be a float.")
         if not isinstance(self.w_next, (int, float)):
             raise TypeError("w_next must be a float.")
-        if float(self.w_prev) < 0:
-            raise ValueError("w_prev must be >= 0.")
-        if float(self.w_next) < 0:
-            raise ValueError("w_next must be >= 0.")
+        if float(self.w_prev) < 0 or float(self.w_prev) > 1:
+            raise ValueError("w_prev must be between 0 and 1.")
+        if float(self.w_next) < 0 or float(self.w_next) > 1:
+            raise ValueError("w_next must be between 0 and 1.")
 
         if not isinstance(self.save_latents_name, str):
             raise TypeError("save_latents_name must be a str.")
@@ -235,30 +237,28 @@ class ThreeDimImputationRunConfig(LatentBaseRunConfig):
         
 @dataclass(slots=True)
 class ThreeDimImputationWeightSweepConfig(LatentBaseRunConfig):
-    prev_path: Path | str
-    next_path: Path | str
+    prev_img_path: Path | str
+    next_img_path: Path | str
     out_dir: Path | str = Path("./outputs")
-    save_latents_name: str = "latents.pt"
-    save_png_name: str = "output.png"
     num_inference_steps: int = 200
     start: float = 0.1
     end: float = 0.9
     step: float = 0.1
 
     def validate(self) -> None:
-        self.prev_path = Path(self.prev_path)
-        self.next_path = Path(self.next_path)
+        self.prev_img_path = Path(self.prev_img_path)
+        self.next_img_path = Path(self.next_img_path)
         self.out_dir = Path(self.out_dir)
 
-        if not self.prev_path.exists():
-            raise FileNotFoundError(f"prev_path does not exist: {self.prev_path}")
-        if not self.prev_path.is_file():
-            raise ValueError(f"prev_path must be a file: {self.prev_path}")
+        if not self.prev_img_path.exists():
+            raise FileNotFoundError(f"prev_img_path does not exist: {self.prev_img_path}")
+        if not self.prev_img_path.is_file():
+            raise ValueError(f"prev_img_path must be a file: {self.prev_img_path}")
 
-        if not self.next_path.exists():
-            raise FileNotFoundError(f"next_path does not exist: {self.next_path}")
-        if not self.next_path.is_file():
-            raise ValueError(f"next_path must be a file: {self.next_path}")
+        if not self.next_img_path.exists():
+            raise FileNotFoundError(f"next_img_path does not exist: {self.next_img_path}")
+        if not self.next_img_path.is_file():
+            raise ValueError(f"next_img_path must be a file: {self.next_img_path}")
 
         if not isinstance(self.num_inference_steps, int):
             raise TypeError("num_inference_steps must be an int.")

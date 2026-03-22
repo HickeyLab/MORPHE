@@ -7,7 +7,7 @@ import numpy as np
 
 def plot_decoded_image(
     *,
-    preview: Sequence[float],
+    preview: np.ndarray,
     iteration: int = 0,
     figsize: tuple[int, int] = (6, 6),
     title: str | None = None,
