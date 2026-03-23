@@ -1,13 +1,16 @@
 from __future__ import annotations
 
+import random
 from collections.abc import Sequence
 
+import numpy as np
 import pandas as pd
 import torch
 import torch.nn.functional as F
 from torch.optim import Adam, Optimizer
 from torch_geometric.loader import DataLoader
 
+from disco.utils import resolve_device
 from src.disco.core.gcnn.artifact import GCNNArtifact
 from src.disco.core.gcnn.config import GCNNTrainerConfig
 from src.disco.core.gcnn.data import RegionGraphDataset
@@ -31,6 +34,7 @@ class GCNNTrainer:
         cfg: GCNNTrainerConfig,
         feature_cols: Sequence[str],
         device: torch.device | str | None = None,
+        seed: int | None = None,
     ) -> None:
         """
         Initialize the trainer.
@@ -46,25 +50,10 @@ class GCNNTrainer:
         self.cfg = cfg
         self.feature_cols = tuple(feature_cols)
         self.df = df
-        self.device = self._resolve_device(device)
-
+        self.device = resolve_device(device)
+        self.seed = seed
         self._validate_feature_cols(self.feature_cols)
         self._validate_df(self.df)
-
-    @staticmethod
-    def _resolve_device(device: torch.device | str | None) -> torch.device:
-        """
-        Resolve the training device.
-
-        Args:
-            device: User-supplied device specification.
-
-        Returns:
-            A normalized torch device.
-        """
-        if device is None:
-            return torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        return torch.device(device)
 
     def _validate_feature_cols(self, feature_cols: Sequence[str]) -> None:
         """
@@ -171,14 +160,41 @@ class GCNNTrainer:
 
         return correct / total if total else 0.0
 
-    def train(self) -> GCNNArtifact:
+    def _set_seed(self, seed: int) -> None:
+        """
+        Seed Python, NumPy, and PyTorch RNG state for reproducible training.
+
+        Args:
+            seed: Random seed to apply.
+        """
+        random.seed(seed)
+        np.random.seed(seed)
+        torch.manual_seed(seed)
+
+        if torch.cuda.is_available():
+            torch.cuda.manual_seed(seed)
+            torch.cuda.manual_seed_all(seed)
+
+    def train(
+        self,
+        *,
+        verbose: bool = False,
+    ) -> GCNNArtifact:
         """
         Train the GCNN model and export it as an artifact.
+
+        Args:
+            verbose: Whether to print per-epoch training progress.
 
         Returns:
             A trained GCNN artifact containing model weights and metadata needed
             to reconstruct the model for inference.
         """
+        if self.seed is not None:
+            self._set_seed(self.seed)
+            if verbose:
+                print(f"Using random seed: {self.seed}")
+
         class_names = tuple(sorted(pd.unique(self.df[self.cfg.label_col]).tolist()))
         num_classes = len(class_names)
 
@@ -213,10 +229,35 @@ class GCNNTrainer:
             weight_decay=float(self.cfg.weight_decay),
         )
 
+        if verbose:
+            print(
+                "Starting GCNN training "
+                f"(device={self.device}, epochs={self.cfg.epochs}, "
+                f"graphs={len(dataset)}, batch_size={self.cfg.batch_size}, "
+                f"num_classes={num_classes})"
+            )
+
+        last_loss = 0.0
+        last_acc = 0.0
+
         for epoch in range(self.cfg.epochs):
             loss = self._train_one_epoch(model, train_loader, optimizer, self.device)
             acc = self._evaluate(model, train_loader, self.device)
-            print(f"Epoch {epoch}, Loss {loss:.4f}, Train Acc {acc:.4f}")
+
+            last_loss = loss
+            last_acc = acc
+
+            if verbose:
+                print(
+                    f"Epoch {epoch + 1}/{self.cfg.epochs} - "
+                    f"loss: {loss:.4f} - train_acc: {acc:.4f}"
+                )
+
+        if verbose:
+            print(
+                "Finished GCNN training "
+                f"(final_loss={last_loss:.4f}, final_train_acc={last_acc:.4f})"
+            )
 
         return GCNNArtifact(
             model_state_dict={key: value.cpu() for key, value in model.state_dict().items()},

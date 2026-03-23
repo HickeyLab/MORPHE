@@ -6,6 +6,8 @@ from pathlib import Path
 
 import torch
 
+from disco.core.gcnn.inferencer import GCNNInferencer
+from disco.utils import resolve_device, resolve_dtype
 from src.disco.core.gcnn.model import GCNClassifier
 
 
@@ -32,27 +34,12 @@ class GCNNArtifact:
     region_col: str
     pos_cols: tuple[str, ...]
     classes_: tuple[str, ...]
-    
-    @staticmethod
-    def _resolve_device(device: torch.device | str | None) -> torch.device:
-        """
-        Resolve a device specification into a concrete ``torch.device``.
-
-        Args:
-            device: Requested device. If ``None``, CUDA is used when available;
-                otherwise CPU is used.
-
-        Returns:
-            A normalized torch device.
-        """
-        if device is None:
-            return torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        return torch.device(device)
 
     def build_model(
         self,
         *,
         device: torch.device | str | None = None,
+        dtype: torch.dtype | None = None,
     ) -> GCNClassifier:
         """
         Reconstruct the trained GCNN model from the artifact.
@@ -75,8 +62,12 @@ class GCNNArtifact:
         )
 
         model.load_state_dict(dict(self.model_state_dict), strict=True)
-        model = model.to(self._resolve_device(device))
+        
+        device = resolve_device(device)
+        dtype = resolve_dtype(device, dtype)
+        model = model.to(device=device, dtype=dtype)
         model.eval()
+        
         return model
 
     def save(self, path: str | Path) -> None:
@@ -176,4 +167,27 @@ class GCNNArtifact:
             region_col=str(payload["region_col"]),
             pos_cols=tuple(payload["pos_cols"]),
             classes_=tuple(payload["classes_"]),
+        )
+        
+    def build_inferencer(
+        self,
+        *,
+        device: torch.device | str | None = None,
+        dtype: torch.dtype | None = None,
+    ) -> GCNNInferencer:
+        """
+        Build a GCNN inferencer from the artifact.
+
+        This method reconstructs the trained GCNN model and prepares it for
+        inference. The model is moved to the specified device and dtype.
+
+        Args:
+            device: Target device for the inferencer. If omitted, CUDA is used
+                when available; otherwise CPU is used.
+                
+        """
+        return GCNNInferencer.from_artifact(
+            artifact=self,
+            device=device,
+            dtype=dtype,
         )

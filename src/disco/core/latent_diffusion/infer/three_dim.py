@@ -7,6 +7,7 @@ import torch
 from PIL import Image
 from torchvision import transforms
 from tqdm import tqdm
+from diffusers import AutoencoderKL, DDPMScheduler, UNet2DConditionModel # type: ignore
 
 from disco.config import InferenceMode
 from disco.core.latent_diffusion.artifact import LatentDiffusionArtifact
@@ -15,6 +16,7 @@ from disco.core.latent_diffusion.infer.run_config import (
     ThreeDimImputationRunConfig,
     ThreeDimImputationWeightSweepConfig,
 )
+from disco.core.latent_diffusion.model import CondEncoder3D
 
 
 class ThreeDimImputationInferencer(BaseLatentInferencer):
@@ -31,8 +33,14 @@ class ThreeDimImputationInferencer(BaseLatentInferencer):
         self,
         *,
         artifact: LatentDiffusionArtifact,
-        device: torch.device | str | None = None,
-        dtype: torch.dtype | None = None,
+        unet: UNet2DConditionModel,
+        vae: AutoencoderKL,
+        cond_encoder: CondEncoder3D,
+        coord_encoder: None,
+        bbox_encoder: None,
+        noise_scheduler: DDPMScheduler,
+        device: torch.device,
+        dtype: torch.dtype,
     ) -> None:
         """
         Initialize a three-dimensional imputation inferencer.
@@ -55,9 +63,20 @@ class ThreeDimImputationInferencer(BaseLatentInferencer):
                 f"inference_mode={InferenceMode.THREE_DIMENSIONAL_IMPUTATION}, "
                 f"but got {artifact.inference_mode}."
             )
+            
+        if cond_encoder is None or not isinstance(cond_encoder, CondEncoder3D):
+            raise RuntimeError(
+                "ThreeDimImputationInferencer requires cond_encoder to be present in the artifact."
+            )
 
         super().__init__(
             artifact=artifact,
+            unet=unet,
+            vae=vae,
+            cond_encoder=cond_encoder,
+            coord_encoder=coord_encoder,
+            bbox_encoder=bbox_encoder,
+            noise_scheduler=noise_scheduler,
             device=device,
             dtype=dtype,
         )

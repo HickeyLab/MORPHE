@@ -1,95 +1,222 @@
 from __future__ import annotations
 
-import os
+import random
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, Tuple
 
+import numpy as np
 import pandas as pd
 import torch
 import torch.nn.functional as F
-from torch.nn import Module
 from torch.optim import Adam, Optimizer
 from torch.utils.data import DataLoader, TensorDataset, random_split
 from tqdm import tqdm
-from disco.core.autoencoder.config import AutoencoderTrainerConfig
 
+from disco.core.autoencoder.config import AutoencoderTrainerConfig
+from disco.utils import resolve_device
 from src.disco.core.autoencoder.artifact import AutoencoderArtifact
 from src.disco.core.autoencoder.model import Autoencoder
 
 
+@dataclass(frozen=True, slots=True)
+class EpochMetrics:
+    """
+    Container for aggregated metrics from a single training or validation epoch.
+
+    Attributes:
+        loss: Mean total loss across the epoch.
+        recon_loss: Mean reconstruction loss across the epoch.
+        cluster_loss: Mean clustering or contrastive loss across the epoch.
+        acc: Mean accuracy across the epoch.
+    """
+    loss: float
+    recon_loss: float
+    cluster_loss: float
+    acc: float
+
+
 class AutoencoderTrainer:
+    """
+    Trainer for fitting an autoencoder on probability-vector inputs.
+
+    This trainer validates the input dataframe, extracts the configured input
+    columns, constructs train/validation splits, optimizes the autoencoder, and
+    returns the best-performing model as an artifact.
+    """
+
     def __init__(
         self,
         *,
         df: pd.DataFrame,
         cfg: AutoencoderTrainerConfig,
         device: torch.device | str | None = None,
-    ):
+        seed: int | None = None,
+    ) -> None:
+        """
+        Initialize the autoencoder trainer.
 
+        Args:
+            df: Input dataframe containing the probability features used for
+                training.
+            cfg: Training configuration for the autoencoder.
+            device: Device on which to train. If omitted, a default device is
+                resolved automatically.
+        """
         self.df = df
-        self._validate_df(df=df)
         self.cfg = cfg
-        self.cfg.validate()
-        
+        self._validate_df(df=df)
+
         self.input_cols = self._get_input_cols(self.df)
         self.in_dim = len(self.input_cols)
 
-        if device is None:
-            self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        else:
-            self.device = torch.device(device)
+        self.device = resolve_device(device)
+        self.save_dir = Path(self.cfg.save_dir)
+        self.save_dir.mkdir(parents=True, exist_ok=True)
+        self.seed = seed
 
         self.emb_matrix = self._df_to_prob_tensor(self.df)
-        dataset = TensorDataset(self.emb_matrix)
 
-        val_size = int(len(dataset) * cfg.val_ratio)
-        train_size = len(dataset) - val_size
-        train_set, val_set = random_split(dataset, [train_size, val_size])
+        self.model: Autoencoder | None = None
+        self.optimizer: Optimizer | None = None
+        self.train_loader: DataLoader | None = None
+        self.val_loader: DataLoader | None = None
 
-        self.train_loader = DataLoader(
-            train_set,
-            batch_size=cfg.batch_size,
-            shuffle=True,
-            num_workers=cfg.num_workers,
-        )
-
-        self.val_loader = DataLoader(
-            val_set,
-            batch_size=cfg.batch_size,
-            shuffle=False,
-            num_workers=cfg.num_workers,
-        )
-
-        self.model = Autoencoder(
-            in_dim=self.in_dim,
-            bottleneck_dim=cfg.bottleneck_dim,
-            hidden_dim=cfg.hidden_dim,
-        ).to(self.device)
-
-        self.optimizer = Adam(
-            self.model.parameters(),
-            lr=cfg.lr,
-        )
-
-        os.makedirs(cfg.save_dir, exist_ok=True)
-        
     def _validate_df(self, df: pd.DataFrame) -> None:
+        """
+        Validate the training dataframe and required input columns.
+
+        Args:
+            df: Dataframe to validate.
+
+        Raises:
+            TypeError: If ``df`` is not a pandas DataFrame.
+            ValueError: If the dataframe is empty, required columns are missing,
+                or the selected input columns contain null values.
+        """
         if not isinstance(df, pd.DataFrame):
             raise TypeError("df must be a pandas DataFrame.")
         if df.empty:
             raise ValueError("df is empty.")
-        
-    def _get_input_cols(self, df: pd.DataFrame) -> list[str]:
-        if self.cfg.input_cols is not None:
-            missing = [col for col in self.cfg.input_cols if col not in df.columns]
+
+        input_cols = self.cfg.input_cols
+        if input_cols is not None:
+            missing = [col for col in input_cols if col not in df.columns]
             if missing:
                 raise ValueError(f"Configured input_cols not found in df: {missing}")
+            cols_to_check = list(input_cols)
+        else:
+            cols_to_check = [col for col in df.columns if col.startswith("prob_")]
+            if not cols_to_check:
+                raise ValueError("No probability columns found with prefix 'prob_'.")
+
+        if df[cols_to_check].isnull().any().any():
+            raise ValueError("Input probability columns contain null values.")
+
+    def _get_input_cols(self, df: pd.DataFrame) -> list[str]:
+        """
+        Determine which dataframe columns should be used as model inputs.
+
+        Args:
+            df: Input dataframe.
+
+        Returns:
+            The list of input column names. Uses configured ``input_cols`` when
+            present; otherwise falls back to columns prefixed with ``prob_``.
+        """
+        if self.cfg.input_cols is not None:
             return list(self.cfg.input_cols)
 
-        input_cols = [col for col in df.columns if col.startswith("prob_")]
-        if not input_cols:
-            raise ValueError("No probability columns found with prefix 'prob_'.")
-        return input_cols
+        return [col for col in df.columns if col.startswith("prob_")]
+
+    def _set_seed(self, seed: int) -> None:
+        """
+        Seed Python, NumPy, and PyTorch RNGs for reproducible training behavior.
+
+        Args:
+            seed: Random seed to apply.
+        """
+        random.seed(seed)
+        np.random.seed(seed)
+        torch.manual_seed(seed)
+
+        if torch.cuda.is_available():
+            torch.cuda.manual_seed(seed)
+            torch.cuda.manual_seed_all(seed)
+
+    def _build_loaders(
+        self,
+        *,
+        seed: int | None = None,
+    ) -> tuple[DataLoader, DataLoader]:
+        """
+        Build train and validation dataloaders from the embedded probability data.
+
+        Args:
+            seed: Optional seed used to make the dataset split and shuffled
+                training loader reproducible.
+
+        Returns:
+            A tuple of ``(train_loader, val_loader)``.
+        """
+        dataset = TensorDataset(self.emb_matrix)
+
+        val_size = int(len(dataset) * self.cfg.val_ratio)
+        train_size = len(dataset) - val_size
+
+        split_generator = (
+            torch.Generator().manual_seed(seed)
+            if seed is not None
+            else None
+        )
+
+        train_set, val_set = random_split(
+            dataset,
+            [train_size, val_size],
+            generator=split_generator,
+        )
+
+        train_loader_generator = (
+            torch.Generator().manual_seed(seed)
+            if seed is not None
+            else None
+        )
+
+        train_loader = DataLoader(
+            train_set,
+            batch_size=self.cfg.batch_size,
+            shuffle=True,
+            num_workers=self.cfg.num_workers,
+            generator=train_loader_generator,
+        )
+
+        val_loader = DataLoader(
+            val_set,
+            batch_size=self.cfg.batch_size,
+            shuffle=False,
+            num_workers=self.cfg.num_workers,
+        )
+
+        return train_loader, val_loader
+
+    def _build_model_and_optimizer(self) -> tuple[Autoencoder, Optimizer]:
+        """
+        Construct the autoencoder model and its optimizer.
+
+        Returns:
+            A tuple containing the initialized model and optimizer.
+        """
+        model = Autoencoder(
+            in_dim=self.in_dim,
+            bottleneck_dim=self.cfg.bottleneck_dim,
+            hidden_dim=self.cfg.hidden_dim,
+        ).to(self.device)
+
+        optimizer = Adam(
+            model.parameters(),
+            lr=self.cfg.lr,
+        )
+
+        return model, optimizer
 
     def _bio_contrastive_loss(
         self,
@@ -99,146 +226,195 @@ class AutoencoderTrainer:
         alpha: float = 0.1,
     ) -> torch.Tensor:
         """
-        Biologically weighted contrastive loss.
+        Compute a biologically motivated contrastive loss in latent space.
 
-        Goal:
-          - Keep samples of the same cell type close together (intra-class cohesion)
-          - Push different cell types apart (inter-class separation)
-          - Allow biologically similar cell types (based on probability similarity)
-            to be closer in the latent space
+        This loss encourages embeddings with the same dominant class to remain
+        close while pushing embeddings with different dominant classes apart,
+        modulated by cosine similarity between the original probability vectors.
 
         Args:
-            z (torch.Tensor): Latent embeddings of shape [B, D]
-            orig_probs (torch.Tensor): Cell type probability distributions [B, C]
-            margin (float): Margin distance for inter-class separation
-            alpha (float): Strength of biological similarity weighting
-        """
-        # --- Step 1: Compute pairwise Euclidean distances in latent space ---
-        dists = torch.cdist(z, z, p=2)  # [B, B]
+            z: Latent representations produced by the encoder.
+            orig_probs: Original probability vectors for the batch.
+            margin: Margin used for separating dissimilar examples.
+            alpha: Scaling factor applied to the similarity-based inter-class
+                weighting.
 
-        # --- Step 2: Identify same-type and different-type pairs ---
-        labels = orig_probs.argmax(dim=1)               # Hard label per sample
-        same = (labels.unsqueeze(1) == labels.unsqueeze(0))  # [B, B]
+        Returns:
+            The scalar contrastive loss for the batch.
+        """
+        dists = torch.cdist(z, z, p=2)
+
+        labels = orig_probs.argmax(dim=1)
+        same = labels.unsqueeze(1) == labels.unsqueeze(0)
         diff = ~same
 
-        # --- Step 3: Compute biological similarity between cells ---
-        # Use cosine similarity between cell-type probability distributions
-        # to reflect biological closeness between different types
         prob_sim = F.cosine_similarity(
-            orig_probs.unsqueeze(1),  # [B, 1, C]
-            orig_probs.unsqueeze(0),  # [1, B, C]
-            dim=-1
-        )  # [B, B]
-        prob_sim = torch.clamp(prob_sim, 0, 1)  # Ensure range [0, 1]
+            orig_probs.unsqueeze(1),
+            orig_probs.unsqueeze(0),
+            dim=-1,
+        )
+        prob_sim = torch.clamp(prob_sim, 0, 1)
 
-        # --- Step 4: Intra-class loss (same type) ---
-        # Encourage embeddings of the same cell type to be close together
         intra_loss = dists[same].sum() / (same.sum() + 1e-8)
 
-        # --- Step 5: Inter-class loss (different types) ---
-        # Encourage different types to be far apart,
-        # but scale the penalty by biological similarity
-        # (more similar types get a smaller penalty)
-        inter_weight = (1 - alpha * prob_sim[diff])
-        inter_loss = (inter_weight * torch.clamp(margin - dists[diff], min=0)).sum() / (diff.sum() + 1e-8)
+        inter_weight = 1 - alpha * prob_sim[diff]
+        inter_loss = (
+            inter_weight * torch.clamp(margin - dists[diff], min=0)
+        ).sum() / (diff.sum() + 1e-8)
 
-        # --- Step 6: Combine total loss ---
-        total_loss = 0.1 * intra_loss + inter_loss
+        return 0.1 * intra_loss + inter_loss
 
-        return total_loss
-
-    # TODO: ASK ABOUT BETA AND ALPHA HERE (_bio_contrastive_loss)
     def _loss_function(
         self,
         orig_probs: torch.Tensor,
         pred_logits: torch.Tensor,
         z: torch.Tensor,
         margin: float = 50.0,
-        beta: float = 0.1
-    ) -> Tuple[torch.Tensor, float, float]:
+        beta: float = 0.1,
+    ) -> tuple[torch.Tensor, float, float]:
+        """
+        Compute the full training loss for a batch.
+
+        The total loss combines KL-divergence reconstruction loss with the
+        latent-space contrastive loss.
+
+        Args:
+            orig_probs: Ground-truth probability vectors.
+            pred_logits: Decoder output logits.
+            z: Latent representations for the batch.
+            margin: Margin used in the contrastive loss.
+            beta: Weight applied to the contrastive component.
+
+        Returns:
+            A tuple containing:
+                - total loss tensor
+                - reconstruction loss as a float
+                - contrastive loss as a float
+        """
         pred_log_probs = F.log_softmax(pred_logits, dim=1)
-        recon_loss = F.kl_div(pred_log_probs, orig_probs, reduction='batchmean')
+        recon_loss = F.kl_div(pred_log_probs, orig_probs, reduction="batchmean")
         cluster_loss = self._bio_contrastive_loss(z, orig_probs, margin)
         total_loss = recon_loss + beta * cluster_loss
         return total_loss, recon_loss.item(), cluster_loss.item()
 
-    def _df_to_prob_tensor(
-        self,
-        df: pd.DataFrame
-    ) -> torch.Tensor:
-        emb_matrix = df[[col for col in df.columns if col.startswith("prob_")]].values # shape = [N, hidden_dim], N = total nodes from all graphs
-        emb_matrix_tensor = torch.tensor(emb_matrix, dtype=torch.float32)
+    def _df_to_prob_tensor(self, df: pd.DataFrame) -> torch.Tensor:
+        """
+        Convert the selected dataframe input columns into a float tensor.
 
-        return emb_matrix_tensor
+        Args:
+            df: Input dataframe.
+
+        Returns:
+            A tensor containing the selected probability features.
+        """
+        emb_matrix = df.loc[:, self.input_cols].to_numpy()
+        return torch.tensor(emb_matrix, dtype=torch.float32)
 
     def _train_one_epoch(
         self,
-        model: Module,
+        model: Autoencoder,
         loader: DataLoader,
         optimizer: Optimizer,
         device: torch.device,
         alpha: float,
-        epoch: int,
-        num_epochs: int,
-    ) -> None:
+        *,
+        verbose: bool = False,
+    ) -> EpochMetrics:
+        """
+        Train the model for one epoch.
+
+        Args:
+            model: Autoencoder to optimize.
+            loader: Training dataloader.
+            optimizer: Optimizer used for gradient updates.
+            device: Device on which training is performed.
+            alpha: Weighting term passed into the batch loss computation.
+            verbose: Whether to wrap the loader with a progress bar.
+
+        Returns:
+            Aggregated metrics for the epoch.
+        """
         model.train()
-        total_loss = 0
-        total_recon = 0
-        total_div = 0
-        t_correct = 0
-        t_total = 0
-        for batch in tqdm(loader, desc=f"Train Epoch {epoch+1}"):
+        total_loss = 0.0
+        total_recon = 0.0
+        total_div = 0.0
+        correct = 0
+        total = 0
+
+        iterator = tqdm(loader, desc="Train", leave=False) if verbose else loader
+        for batch in iterator:
             x = batch[0].to(device)
             optimizer.zero_grad()
             z, out = model(x)
             loss, recon_loss, diversity_loss = self._loss_function(x, out, z, beta=alpha)
             loss.backward()
             optimizer.step()
+
             total_loss += loss.item()
             total_recon += recon_loss
             total_div += diversity_loss
             out_label = out.argmax(dim=1)
             x_label = x.argmax(dim=1)
-            t_correct += (out_label == x_label).sum().item()
-            t_total += x.size(0)
-        val_acc = t_correct / t_total
-        total_loss /= len(loader)
-        total_recon /= len(loader)
-        total_div /= len(loader)
-        print(f"Epoch {epoch+1}/{num_epochs} | Train Loss: {total_loss:.4f} | Recon: {total_recon:.4f} | Diversity: {total_div:.4f} | Train Acc: {val_acc:.4f}")
+            correct += (out_label == x_label).sum().item()
+            total += x.size(0)
+
+        return EpochMetrics(
+            loss=total_loss / len(loader),
+            recon_loss=total_recon / len(loader),
+            cluster_loss=total_div / len(loader),
+            acc=correct / total,
+        )
 
     def _evaluate_one_epoch(
         self,
-        model: Module,
+        model: Autoencoder,
         loader: DataLoader,
         device: torch.device,
         alpha: float,
-        epoch: int,
-        num_epochs: int
-    ) -> None:
+        *,
+        verbose: bool = False,
+    ) -> EpochMetrics:
+        """
+        Evaluate the model for one epoch without gradient updates.
+
+        Args:
+            model: Autoencoder to evaluate.
+            loader: Validation dataloader.
+            device: Device on which evaluation is performed.
+            alpha: Weighting term passed into the batch loss computation.
+            verbose: Whether to wrap the loader with a progress bar.
+
+        Returns:
+            Aggregated validation metrics for the epoch.
+        """
         model.eval()
-        val_loss = 0
-        val_recon = 0
-        val_div = 0
-        val_correct = 0
-        val_total = 0
+        total_loss = 0.0
+        total_recon = 0.0
+        total_div = 0.0
+        correct = 0
+        total = 0
+
         with torch.no_grad():
-            for batch in tqdm(loader, desc=f"Val Epoch {epoch+1}"):
+            iterator = tqdm(loader, desc="Val", leave=False) if verbose else loader
+            for batch in iterator:
                 x = batch[0].to(device)
                 z, out = model(x)
                 loss, recon_loss, diversity_loss = self._loss_function(x, out, z, beta=alpha)
-                val_loss += loss.item()
-                val_recon += recon_loss
-                val_div += diversity_loss
+
+                total_loss += loss.item()
+                total_recon += recon_loss
+                total_div += diversity_loss
                 x_label = x.argmax(dim=1)
                 out_label = out.argmax(dim=1)
-                val_correct += (out_label == x_label).sum().item()
-                val_total += x.size(0)
-        val_acc = val_correct / val_total
-        val_loss /= len(loader)
-        val_recon /= len(loader)
-        val_div /= len(loader)
-        print(f"Epoch {epoch+1}/{num_epochs} | Val Loss: {val_loss:.4f} | Recon: {val_recon:.4f} | Diversity: {val_div:.4f} | Val Acc: {val_acc:.4f}")
+                correct += (out_label == x_label).sum().item()
+                total += x.size(0)
+
+        return EpochMetrics(
+            loss=total_loss / len(loader),
+            recon_loss=total_recon / len(loader),
+            cluster_loss=total_div / len(loader),
+            acc=correct / total,
+        )
 
     def _compute_z_min_max(
         self,
@@ -247,6 +423,17 @@ class AutoencoderTrainer:
         *,
         device: torch.device,
     ) -> tuple[torch.Tensor, torch.Tensor]:
+        """
+        Compute per-dimension latent minima and maxima over the full dataset.
+
+        Args:
+            model: Trained autoencoder model.
+            emb_matrix: Full embedded input matrix.
+            device: Device on which to run the encoder.
+
+        Returns:
+            A tuple of ``(z_min, z_max)`` tensors for the latent dimensions.
+        """
         model.eval()
         with torch.no_grad():
             z = model.encoder(emb_matrix.to(device))
@@ -255,7 +442,22 @@ class AutoencoderTrainer:
         return z_min, z_max
 
     def _save_best_checkpoint(self, save_dir: Path) -> AutoencoderArtifact:
-        save_dir.mkdir(exist_ok=True)
+        """
+        Build and save an artifact from the current best model state.
+
+        Args:
+            save_dir: Directory in which to save the artifact file.
+
+        Returns:
+            The constructed autoencoder artifact.
+
+        Raises:
+            RuntimeError: If called before the model has been initialized.
+        """
+        if self.model is None:
+            raise RuntimeError("Cannot save artifact before model has been built.")
+
+        save_dir.mkdir(parents=True, exist_ok=True)
 
         z_min, z_max = self._compute_z_min_max(
             self.model,
@@ -264,39 +466,97 @@ class AutoencoderTrainer:
         )
 
         artifact = AutoencoderArtifact(
-            {k: v.cpu() for k, v in self.model.state_dict().items()},
-            input_cols=self.input_cols,
+            state_dict={k: v.detach().cpu() for k, v in self.model.state_dict().items()},
+            input_cols=tuple(self.input_cols),
             in_dim=self.in_dim,
             bottleneck_dim=self.cfg.bottleneck_dim,
             hidden_dim=self.cfg.hidden_dim,
             z_min=z_min,
-            z_max=z_max
+            z_max=z_max,
         )
-
-        artifact_path = save_dir / "autoencoder_artifact.pt"
-        artifact.save(artifact_path)
-
+        artifact.save(save_dir / "autoencoder_artifact.pt")
         return artifact
 
-    def train(self) -> AutoencoderArtifact:
+    def train(
+        self,
+        *,
+        verbose: bool = False,
+    ) -> AutoencoderArtifact:
+        """
+        Run the full training loop and return the best saved artifact.
+
+        Args:
+            verbose: Whether to print training progress and display progress
+                bars.
+
+        Returns:
+            The best-performing autoencoder artifact observed during training.
+
+        Raises:
+            RuntimeError: If model, optimizer, or dataloaders are not properly
+                initialized, or if training finishes without producing a best
+                artifact.
+        """
+        if self.seed is not None:
+            self._set_seed(self.seed)
+
+        self.train_loader, self.val_loader = self._build_loaders(seed=self.seed)
+        self.model, self.optimizer = self._build_model_and_optimizer()
+
+        if self.model is None or self.optimizer is None:
+            raise RuntimeError("Model and optimizer must be initialized before training.")
+        if self.train_loader is None or self.val_loader is None:
+            raise RuntimeError("Data loaders must be initialized before training.")
+
+        best_val_loss = float("inf")
+        best_artifact: AutoencoderArtifact | None = None
+
+        if verbose:
+            print(
+                f"Starting training for {self.cfg.num_epochs} epochs "
+                f"on device={self.device} "
+            )
+
         for epoch in range(self.cfg.num_epochs):
-            self._train_one_epoch(
-                model=self.model,
-                loader=self.train_loader,
-                optimizer=self.optimizer,
-                device=self.device,
-                alpha=self.cfg.alpha,
-                epoch=epoch,
-                num_epochs=self.cfg.num_epochs,
+            train_metrics = self._train_one_epoch(
+                self.model,
+                self.train_loader,
+                self.optimizer,
+                self.device,
+                self.cfg.alpha,
+                verbose=verbose,
             )
-            self._evaluate_one_epoch(
-                model=self.model,
-                loader=self.val_loader,
-                device=self.device,
-                alpha=self.cfg.alpha,
-                epoch=epoch,
-                num_epochs=self.cfg.num_epochs,
+            val_metrics = self._evaluate_one_epoch(
+                self.model,
+                self.val_loader,
+                self.device,
+                self.cfg.alpha,
+                verbose=verbose,
             )
 
-        artifact = self._save_best_checkpoint(self.cfg.save_dir)
-        return artifact
+            if verbose:
+                print(
+                    f"Epoch {epoch + 1}/{self.cfg.num_epochs} | "
+                    f"train_loss={train_metrics.loss:.4f} | "
+                    f"train_recon={train_metrics.recon_loss:.4f} | "
+                    f"train_cluster={train_metrics.cluster_loss:.4f} | "
+                    f"train_acc={train_metrics.acc:.4f} | "
+                    f"val_loss={val_metrics.loss:.4f} | "
+                    f"val_recon={val_metrics.recon_loss:.4f} | "
+                    f"val_cluster={val_metrics.cluster_loss:.4f} | "
+                    f"val_acc={val_metrics.acc:.4f}"
+                )
+
+            if val_metrics.loss < best_val_loss:
+                best_val_loss = val_metrics.loss
+                best_artifact = self._save_best_checkpoint(self.save_dir)
+                if verbose:
+                    print(f"New best validation loss: {best_val_loss:.4f}")
+
+        if best_artifact is None:
+            raise RuntimeError("Training completed without producing a best artifact.")
+
+        if verbose:
+            print(f"Training complete. Best validation loss: {best_val_loss:.4f}")
+
+        return best_artifact

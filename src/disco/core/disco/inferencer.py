@@ -6,213 +6,345 @@ from typing import Any
 
 import pandas as pd
 import torch
-from disco.config import LATENT_INFERENCER_REGISTRY, LATENT_TRAIN_STRATEGY_REGISTRY, InferenceMode, PreProcessConfig
+from disco.config import InferenceMode, PreProcessConfig
 
 from disco.core.autoencoder.artifact import AutoencoderArtifact
-from disco.core.autoencoder.inferencer import AutoencoderRGBInferencer
+from disco.core.autoencoder.inferencer import AutoencoderInferencer
 from disco.core.disco.artifact import DiscoArtifact
 from disco.core.gcnn.artifact import GCNNArtifact
 from disco.core.gcnn.inferencer import GCNNInferencer
 from disco.core.latent_diffusion.artifact import LatentDiffusionArtifact
 from disco.core.latent_diffusion.infer.base import BaseLatentInferencer
+from disco.core.latent_diffusion.infer.gapfill import GapfillInferencer
+from disco.core.latent_diffusion.infer.inpaint import InpaintInferencer
 from disco.core.latent_diffusion.infer.run_config import GapfillRunConfig, InpaintRunConfig, LatentBaseRunConfig, OutpaintRunConfig, ThreeDimImputationRunConfig
 from disco.core.latent_diffusion.infer.three_dim import ThreeDimImputationInferencer
 from disco.core.pixel_diffusion.artifact import PixelDiffusionArtifact
 from disco.core.pixel_diffusion.inferencer import PixelDiffusionInferencer
 from disco.core.preprocess import PreProcessor
+from disco.utils import resolve_device, resolve_dtype
 
 
 class DiscoInferencer:
     """
-    High-level inference orchestrator.
+    Top-level inference facade for DISCO pipelines.
 
-    Delegates generation to latent diffusion and decoding/refinement
-    to pixel diffusion or autoencoder.
+    This class owns the resolved runtime components built from a
+    ``DiscoArtifact`` and exposes higher-level prediction / generation
+    methods across the full DISCO stack.
     """
 
     def __init__(
         self,
         *,
-        artifact: DiscoArtifact | None = None,
-        preprocessor_config: PreProcessConfig | None = None,
-        ae_artifact: AutoencoderArtifact | None = None,
-        gcnn_artifact: GCNNArtifact | None = None,
-        ld_artifact: LatentDiffusionArtifact | None = None,
-        pd_artifact: PixelDiffusionArtifact | None = None,
-        pd_pretrained_path: str = "runwayml/stable-diffusion-v1-5",
-        pd_num_inference_steps: int = 150,
-        device: torch.device | str = torch.device("cpu"),
-        dtype: torch.dtype = torch.float32,
+        artifact: DiscoArtifact,
+        device: torch.device,
+        dtype: torch.dtype,
+        preprocessor: PreProcessor,
+        gcnn_inferencer: GCNNInferencer,
+        autoencoder_inferencer: AutoencoderInferencer,
+        ld_inferencer: BaseLatentInferencer,
+        pd_inferencer: PixelDiffusionInferencer,
     ) -> None:
-        if isinstance(device, str):
-            device = torch.device(device)
+        """
+        Initialize a fully constructed DISCO inferencer.
 
-        if artifact is not None:
-            preprocessor_config = preprocessor_config or artifact.preprocessor_config
-            ae_artifact = ae_artifact or artifact.autoencoder_artifact
-            gcnn_artifact = gcnn_artifact or artifact.gcnn_artifact
-            ld_artifact = ld_artifact or artifact.latent_diffusion_artifact
-            pd_artifact = pd_artifact or artifact.pixel_diffusion_artifact
-
-        if (
-            ae_artifact is None
-            or gcnn_artifact is None
-            or ld_artifact is None
-            or pd_artifact is None
-        ):
-            raise ValueError(
-                "All artifacts must be provided either directly or via the DiscoArtifact"
-            )
-
+        Args:
+            artifact: Top-level artifact containing the trained DISCO
+                component artifacts.
+            device: Resolved runtime device for inference.
+            dtype: Resolved floating-point dtype for inference, when used.
+            gcnn_inferencer: Built GCNN inferencer, if available.
+            autoencoder_inferencer: Built autoencoder inferencer, if available.
+            ld_inferencer: Built latent diffusion inferencer, if available.
+            pd_inferencer: Built pixel diffusion inferencer, if available.
+        """
+        if artifact is None or not isinstance(artifact, DiscoArtifact):
+            raise ValueError("artifact must be a valid DiscoArtifact instance.")
+        if preprocessor is None or not isinstance(preprocessor, PreProcessor):
+            raise ValueError("preprocessor must be a valid PreProcessor instance.")
+        if gcnn_inferencer is None or not isinstance(gcnn_inferencer, GCNNInferencer):
+            raise ValueError("gcnn_inferencer must be a valid GCNNInferencer instance.")
+        if autoencoder_inferencer is None or not isinstance(autoencoder_inferencer, AutoencoderInferencer):
+            raise ValueError("autoencoder_inferencer must be a valid AutoencoderInferencer instance.")
+        if ld_inferencer is None or not isinstance(ld_inferencer, BaseLatentInferencer):
+            raise ValueError("ld_inferencer must be a valid BaseLatentInferencer instance.")
+        if pd_inferencer is None or not isinstance(pd_inferencer, PixelDiffusionInferencer):
+            raise ValueError("pd_inferencer must be a valid PixelDiffusionInferencer instance.")
+        
         self.artifact = artifact
-        self.preprocessor_config = (
-            preprocessor_config
-            if preprocessor_config is not None
-            else PreProcessConfig()
-        )
-        self.ae_artifact = ae_artifact
-        self.gcnn_artifact = gcnn_artifact
-        self.ld_artifact = ld_artifact
-        self.pd_artifact = pd_artifact
         self.device = device
         self.dtype = dtype
+        self.preprocessor = preprocessor
+        self.gcnn_inferencer = gcnn_inferencer
+        self.autoencoder_inferencer = autoencoder_inferencer
+        self.latent_diffusion_inferencer = ld_inferencer
+        self.pixel_diffusion_inferencer = pd_inferencer
 
-        self._pp: PreProcessor = PreProcessor(config=self.preprocessor_config)
-        self._ae: AutoencoderRGBInferencer = AutoencoderRGBInferencer.from_artifact(
-                artifact=self.ae_artifact,
-                device=self.device,
+    @classmethod
+    def from_artifact(
+        cls,
+        *,
+        artifact: DiscoArtifact,
+        device: torch.device | str | None = None,
+        dtype: torch.dtype | None = None,
+    ) -> "DiscoInferencer":
+        """
+        Build a ``DiscoInferencer`` from a top-level artifact.
+
+        Args:
+            artifact: Top-level DISCO artifact.
+            device: Target device for inference.
+            dtype: Optional floating-point dtype for inference components.
+
+        Returns:
+            A fully initialized ``DiscoInferencer``.
+        """
+        resolved_device = resolve_device(device)
+        resolved_dtype = resolve_dtype(device=resolved_device, dtype=dtype)
+        
+        if (
+            artifact.preprocessor_config is None or not isinstance(artifact.preprocessor_config, PreProcessConfig)
+            or artifact.gcnn_artifact is None or not isinstance(artifact.gcnn_artifact, GCNNArtifact)
+            or artifact.autoencoder_artifact is None or not isinstance(artifact.autoencoder_artifact, AutoencoderArtifact)
+            or artifact.latent_diffusion_artifact is None or not isinstance(artifact.latent_diffusion_artifact, LatentDiffusionArtifact)
+            or artifact.pixel_diffusion_artifact is None or not isinstance(artifact.pixel_diffusion_artifact, PixelDiffusionArtifact)
+        ):
+            raise ValueError(
+                "Autoencoder, GCNN, Latent Diffusion, and Pixel Diffusion artifacts must be present to build an inferencer."
             )
-        self._gcnn: GCNNInferencer = GCNNInferencer.from_artifact(
-                artifact=self.gcnn_artifact,
-                device=self.device,
-            )
-        self._pd: PixelDiffusionInferencer = PixelDiffusionInferencer.from_artifact(
-            artifact=self.pd_artifact,
-            pretrained_path=pd_pretrained_path,
-            num_inference_steps=pd_num_inference_steps,
-            device=self.device,
-            dtype=self.dtype,
-        )
-        
-    def _build_ld_inferencer(self, mode: InferenceMode) -> BaseLatentInferencer:
-        inferencer_cls = LATENT_INFERENCER_REGISTRY.get(mode)
-        train_strategy = LATENT_TRAIN_STRATEGY_REGISTRY.get(mode)
-        
-        if inferencer_cls is None:
-            raise ValueError(f"Unsupported inference mode: {mode}")
-        
-        if train_strategy is None:
-            raise ValueError(f"Unsupported train strategy for mode: {mode}")
+            
+        preprocessor = PreProcessor(config=artifact.preprocessor_config)
+        gcnn_inferencer = artifact.gcnn_artifact.build_inferencer(device=resolved_device, dtype=resolved_dtype)
+        autoencoder_inferencer = artifact.autoencoder_artifact.build_inferencer(device=resolved_device, dtype=resolved_dtype)
+        ld_inferencer = artifact.latent_diffusion_artifact.build_inferencer(device=resolved_device, dtype=resolved_dtype)
+        pd_inferencer = artifact.pixel_diffusion_artifact.build_inferencer(device=resolved_device, dtype=resolved_dtype)
 
-        return inferencer_cls(
-            train_strategy=train_strategy(),
-            artifact=self.ld_artifact,
-            device=self.device,
-            dtype=self.dtype,
+        return cls(
+            artifact=artifact,
+            device=resolved_device,
+            dtype=resolved_dtype,
+            preprocessor=preprocessor,
+            gcnn_inferencer=gcnn_inferencer,
+            autoencoder_inferencer=autoencoder_inferencer,
+            ld_inferencer=ld_inferencer,
+            pd_inferencer=pd_inferencer,
         )
 
-    def _run_task(
+    def _prepare_regions(
         self,
         df: pd.DataFrame,
-        inference_mode: InferenceMode,
         root_dir: str | Path,
-        latent_run_config: LatentBaseRunConfig,
-    ) -> list[torch.Tensor]:
+    ) -> tuple[pd.DataFrame, Path]:
+        """
+        Run the shared preprocessing, GCNN prediction, and autoencoder
+        rasterization pipeline needed before latent diffusion inference.
+
+        Args:
+            df: Input dataframe containing raw per-cell or per-spot data.
+            root_dir: Directory where intermediate rasterized region outputs
+                should be written.
+
+        Returns:
+            A tuple of:
+                - dataframe after GCNN prediction / downstream enrichment
+                - normalized root output directory path
+        """
         if not root_dir:
             raise ValueError("Must provide root_dir for saving intermediate files.")
+
         root_dir = Path(root_dir)
-        
-        processed_df, _ = self._pp.preprocess(df=df)
-        
-        # GCNN
-        gcnn_probabilities = self._gcnn.predict_proba(df=processed_df)
-        
-        # Autoencoder + Rasterization
-        rgb_values = self._ae.add_rgb_and_rasterize_per_region(
+        root_dir.mkdir(parents=True, exist_ok=True)
+
+        processed_df, _ = self.preprocessor.preprocess(df=df)
+        gcnn_probabilities = self.gcnn_inferencer.predict_proba(df=processed_df)
+
+        self.autoencoder_inferencer.add_rgb_and_rasterize_per_region(
             result_df=gcnn_probabilities,
             save_dir=root_dir,
         )
-        
-        ld = self._build_ld_inferencer(mode=inference_mode)        
-        # Latent Diffusion
-        latents = ld.run(cfg=latent_run_config)
-        
-        results = []
+
+        return gcnn_probabilities, root_dir
+
+    def _decode_latents_to_cell_maps(
+        self,
+        latents: list[torch.Tensor],
+    ) -> list[torch.Tensor]:
+        """
+        Decode latent outputs into final cell-map predictions.
+
+        Each latent is first decoded into RGB space with the pixel diffusion
+        inferencer, then converted from RGB into a cell-map representation
+        with the autoencoder inferencer.
+
+        Args:
+            latents: Latent tensors returned by a latent diffusion inferencer.
+
+        Returns:
+            Decoded cell-map tensors in the same order as the input latents.
+        """
+        results: list[torch.Tensor] = []
+
         for latent in latents:
-            rgb = self._pd.decode(latent=latent)
-            cell_map = self._ae.decode_rgb_to_cell_map(rgb)
+            rgb = self.pixel_diffusion_inferencer.decode(latent=latent)
+            cell_map = self.autoencoder_inferencer.decode_rgb_to_cell_map(rgb)
             results.append(cell_map)
 
         return results
 
-    def inpaint(
+    def run_gapfill(
         self,
         df: pd.DataFrame,
         root_dir: str | Path,
-        latent_run_config: InpaintRunConfig | None = None,
-    ) -> Any:
-        latent_run_config = latent_run_config or InpaintRunConfig(
-            image_dir=root_dir,
-            mask_dir=root_dir,
-        )   
-        return self._run_task(
-            df=df,
-            inference_mode=InferenceMode.INPAINTING,
-            root_dir=root_dir,
-            latent_run_config=latent_run_config,
-        )
+        *,
+        input_dir: str | Path,
+        save_dir: str | Path,
+        save_name: str = "default",
+        num_steps: int = 200,
+        iterations: int = 10,
+        show_plot: bool = False,
+        plot_title: str | None = None,
+        plot_fig_size: tuple[int, int] = (6, 6),
+        bbox: torch.Tensor | None = None,
+    ) -> list[torch.Tensor]:
+        """
+        Run the full DISCO pipeline for latent gap-filling.
 
-    def outpaint(
-        self, 
-        df: pd.DataFrame, 
-        root_dir: str | Path,
-        latent_run_config: OutpaintRunConfig | None = None,
-    ) -> Any:
-        latent_run_config = latent_run_config or OutpaintRunConfig(
-            original_dir=root_dir,
-            save_dir=root_dir
-        )
-        
-        return self._run_task(
-            df=df,
-            inference_mode=InferenceMode.OUTPAINTING,
-            root_dir=root_dir,
-            latent_run_config=latent_run_config,
-        )
+        Args:
+            df: Input dataframe containing raw region data.
+            root_dir: Directory for intermediate rasterized outputs.
+            input_dir: Directory containing rasterized inputs for gap-filling.
+            save_dir: Directory where latent gap-fill outputs should be saved.
+            save_name: Base name used for saved outputs.
+            steps: Number of diffusion denoising steps per iteration.
+            iterations: Number of iterative gap-fill passes to run.
+            show_plot: Whether to display qualitative plots during inference.
+            plot_title: Optional plot title override.
+            plot_fig_size: Figure size used for visualization.
+            bbox: Optional bounding box conditioning tensor.
 
-    def gapfill(
-        self, 
-        df: pd.DataFrame, 
-        root_dir: str | Path,
-        latent_run_config: GapfillRunConfig | None = None,
-    ) -> Any:
-        latent_run_config = latent_run_config or GapfillRunConfig(
-            original_dir=root_dir,
-            save_dir=root_dir
-        )
-        
-        return self._run_task(
-            df=df,
-            inference_mode=InferenceMode.GAPFILL,
-            root_dir=root_dir,
-            latent_run_config=latent_run_config,
-        )
+        Returns:
+            Final decoded cell-map tensors.
+        """
+        self._prepare_regions(df=df, root_dir=root_dir)
 
-    def three_dimensional_imputation(
-        self, 
-        df: pd.DataFrame, 
+        if not isinstance(self.latent_diffusion_inferencer, GapfillInferencer):
+            raise TypeError(
+                "latent_diffusion_inferencer must be a GapfillInferencer "
+                "to use run_gapfill()."
+            )
+
+        latents = self.latent_diffusion_inferencer.run(
+            input_dir=input_dir,
+            save_dir=save_dir,
+            save_name=save_name,
+            num_steps=num_steps,
+            iterations=iterations,
+            show_plot=show_plot,
+            plot_title=plot_title,
+            plot_fig_size=plot_fig_size,
+            bbox=bbox,
+        )
+        return self._decode_latents_to_cell_maps(latents)
+
+    def run_inpaint(
+        self,
+        df: pd.DataFrame,
         root_dir: str | Path,
-        latent_run_config: ThreeDimImputationRunConfig | None = None
-    ) -> Any:
-        latent_run_config = latent_run_config or ThreeDimImputationRunConfig(
-            prev_path=root_dir,
-            next_path=root_dir,
-            out_dir=root_dir,
+        *,
+        input_dir: str | Path,
+        mask_dir: str | Path,
+        num_steps: int = 200,
+        show_plot: bool = False,
+        plot_title: str = "Inpainting Progress",
+        plot_fig_size: tuple[int, int] = (6, 6),
+    ) -> list[torch.Tensor]:
+        """
+        Run the full DISCO pipeline for latent inpainting.
+
+        Args:
+            df: Input dataframe containing raw region data.
+            root_dir: Directory for intermediate rasterized outputs.
+            input_dir: Directory containing rasterized inputs for inpainting.
+            mask_dir: Directory containing inpainting masks.
+            num_steps: Number of diffusion denoising steps.
+            show_plot: Whether to display qualitative plots during inference.
+            plot_title: Title used for qualitative plots.
+            plot_fig_size: Figure size used for visualization.
+
+        Returns:
+            Final decoded cell-map tensors.
+        """
+        self._prepare_regions(df=df, root_dir=root_dir)
+
+        if not isinstance(self.latent_diffusion_inferencer, InpaintInferencer):
+            raise TypeError(
+                "latent_diffusion_inferencer must be an InpaintInferencer "
+                "to use run_inpaint()."
+            )
+
+        latents = self.latent_diffusion_inferencer.run(
+            input_dir=input_dir,
+            mask_dir=mask_dir,
+            num_steps=num_steps,
+            show_plot=show_plot,
+            plot_title=plot_title,
+            plot_fig_size=plot_fig_size,
         )
-        
-        return self._run_task(
-            df=df,
-            inference_mode=InferenceMode.THREE_DIMENSIONAL_IMPUTATION,
-            root_dir=root_dir,
-            latent_run_config=latent_run_config,
+        return self._decode_latents_to_cell_maps(latents)
+
+    def run_three_dim_imputation(
+        self,
+        df: pd.DataFrame,
+        root_dir: str | Path,
+        *,
+        prev_path: str | Path,
+        next_path: str | Path,
+        out_dir: str | Path,
+        num_inference_steps: int = 200,
+        w_prev: float = 0.5,
+        w_next: float = 0.5,
+        save_latents_name: str = "latents.pt",
+        save_png_name: str = "output.png",
+    ) -> list[torch.Tensor]:
+        """
+        Run the full DISCO pipeline for 3D latent imputation.
+
+        Args:
+            df: Input dataframe containing raw region data.
+            root_dir: Directory for intermediate rasterized outputs.
+            prev_path: Path to the previous slice input image.
+            next_path: Path to the next slice input image.
+            out_dir: Output directory for imputation results.
+            num_inference_steps: Number of diffusion denoising steps.
+            w_prev: Weight applied to the previous slice conditioning.
+            w_next: Weight applied to the next slice conditioning.
+            save_latents_name: Filename used when saving latent outputs.
+            save_png_name: Filename used when saving decoded image outputs.
+
+        Returns:
+            Final decoded cell-map tensors.
+        """
+        self._prepare_regions(df=df, root_dir=root_dir)
+
+        if not isinstance(
+            self.latent_diffusion_inferencer,
+            ThreeDimImputationInferencer,
+        ):
+            raise TypeError(
+                "latent_diffusion_inferencer must be a "
+                "ThreeDimImputationInferencer to use "
+                "run_three_dim_imputation()."
+            )
+
+        latent = self.latent_diffusion_inferencer.run(
+            prev_img_path=prev_path,
+            next_img_path=next_path,
+            out_dir=out_dir,
+            num_inference_steps=num_inference_steps,
+            w_prev=w_prev,
+            w_next=w_next,
+            save_latents_name=save_latents_name,
+            save_png_name=save_png_name,
         )
+        return self._decode_latents_to_cell_maps([latent])

@@ -12,49 +12,29 @@ class Cascade512TrainerConfig:
     optimizer_betas: tuple[float, float] = (0.9, 0.999)
     optimizer_weight_decay: float = 1e-5
 
-    # -------------------------------
     # Runtime
-    # -------------------------------
     mixed_precision: str = "fp16"
 
-    # -------------------------------
     # Data loading
-    # -------------------------------
     train_num_workers: int = 4
     train_batch_size: int = 4
     val_num_workers: int = 2
     val_batch_size: int = 2
 
-    # -------------------------------
     # Model / pretrained sources
-    # -------------------------------
     ae_pretrained: str = "runwayml/stable-diffusion-v1-5"
     scheduler_pretrained: str = "runwayml/stable-diffusion-v1-5"
+    scheduler_num_inference_steps: int = 200
     adapter_kwargs: dict[str, int] | None = None
     unet_kwargs: dict[str, int] | None = None
 
-    # -------------------------------
     # Output
-    # -------------------------------
     vis_dir: str | Path = "visualizations"
     comp_eval_save_dir: str | Path = "comp_eval"
 
-    # -------------------------------
     # Training loop
-    # -------------------------------
     epochs: int = 30
     patience: int = 5
-
-    # -------------------------------
-    # Evaluation / visualization
-    # -------------------------------
-    enable_epoch_visualizations: bool = False
-    enable_sample_visualization: bool = True
-    enable_composition_eval: bool = True
-    visualization_inference_steps: int = 50
-    visualize_max_batches: int = 2
-    chart_left_title: str = "Original Composition"
-    chart_right_title: str = "Predicted Composition"
     
     def __post_init__(self) -> None:
         object.__setattr__(self, "vis_dir", Path(self.vis_dir))
@@ -129,28 +109,6 @@ class Cascade512TrainerConfig:
         for name, val in (
             ("epochs", self.epochs),
             ("patience", self.patience),
-            ("visualization_inference_steps", self.visualization_inference_steps),
-            ("visualize_max_batches", self.visualize_max_batches),
         ):
             if not isinstance(val, int) or val <= 0:
                 raise ValueError(f"{name} must be a positive int, got {val!r}")
-
-        # -------------------------------
-        # Evaluation / visualization
-        # -------------------------------
-        if not isinstance(self.enable_epoch_visualizations, bool):
-            raise TypeError(
-                f"enable_epoch_visualizations must be bool, got {type(self.enable_epoch_visualizations).__name__}"
-            )
-
-        if not isinstance(self.enable_sample_visualization, bool):
-            raise TypeError("enable_sample_visualization must be bool.")
-
-        if not isinstance(self.enable_composition_eval, bool):
-            raise TypeError("enable_composition_eval must be bool.")
-
-        if not isinstance(self.chart_left_title, str) or not self.chart_left_title:
-            raise ValueError("chart_left_title must be a non-empty str.")
-
-        if not isinstance(self.chart_right_title, str) or not self.chart_right_title:
-            raise ValueError("chart_right_title must be a non-empty str.")

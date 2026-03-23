@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 
@@ -19,30 +20,22 @@ class LatentTrainerConfig:
         - When decay is enabled, all required decay hyperparameters must be
           provided and valid.
     """
-    # ------------------------------------------------------------------
     # Learning-rate decay
-    # ------------------------------------------------------------------
     decay_enabled: bool = False
     patience: int | None = None
     lr_decay_every: int | None = None
     lr_decay_factor: float | None = None
 
-    # ------------------------------------------------------------------
     # Checkpointing / output
-    # ------------------------------------------------------------------
-    save_dir: str = "checkpoints"
+    save_dir: str | Path = "checkpoints"
     save_best_only: bool = True
 
-    # ------------------------------------------------------------------
     # Pretrained backbone
-    # ------------------------------------------------------------------
     unet_pretrained_path: str = "runwayml/stable-diffusion-v1-5"
     ae_pretrained_path: str = "runwayml/stable-diffusion-v1-5"
     scheduler_pretrained_path: str = "runwayml/stable-diffusion-v1-5"
 
-    # ------------------------------------------------------------------
     # Optimization / training loop
-    # ------------------------------------------------------------------
     lr: float = 2e-5
     mixed_precision: str = "fp16"
     grad_clip: float = 1.0
@@ -50,9 +43,7 @@ class LatentTrainerConfig:
     val_batch_size: int = 8
     epochs: int = 20
 
-    # ------------------------------------------------------------------
     # Optional encoder construction kwargs
-    # ------------------------------------------------------------------
     cond_encoder_kwargs: dict[str, Any] | None = None
     coord_encoder_kwargs: dict[str, Any] | None = None
     bbox_encoder_kwargs: dict[str, Any] | None = None
@@ -60,6 +51,7 @@ class LatentTrainerConfig:
     def __post_init__(self) -> None:
         """Validate config immediately after construction."""
         self.validate()
+        object.__setattr__(self, "save_dir", Path(self.save_dir))
 
     def validate(self) -> None:
         """Validate that all config values are internally consistent."""

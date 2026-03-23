@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Mapping
 
 import torch
 from diffusers import DDPMScheduler, UNet2DConditionModel, AutoencoderKL  # type: ignore
 
-from disco.config import InferenceMode
 from disco.core.latent_diffusion.model import BBoxEncoder, CondEncoder, CondEncoder3D, CoordEncoder
 
 

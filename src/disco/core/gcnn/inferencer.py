@@ -11,6 +11,7 @@ from torch_geometric.loader import DataLoader
 from disco.core.gcnn.artifact import GCNNArtifact
 from disco.core.gcnn.data import RegionGraphDataset
 from disco.core.gcnn.model import GCNClassifier
+from disco.utils import resolve_device, resolve_dtype
 
 class GCNNInferencer:
     """
@@ -43,6 +44,7 @@ class GCNNInferencer:
         artifact: GCNNArtifact,
         *,
         device: torch.device | str | None = None,
+        dtype: torch.dtype | None = None,
     ) -> GCNNInferencer:
         """
         Build an inferencer from a serialized GCNN artifact.
@@ -55,24 +57,14 @@ class GCNNInferencer:
         Returns:
             A ready-to-use ``GCNNInferencer``.
         """
-        model = artifact.build_model(device=GCNNInferencer.resolve_device(device))
+        if not isinstance(artifact, GCNNArtifact):
+            raise TypeError("Expected artifact to be an instance of GCNNArtifact.")
+        
+        device = resolve_device(device)
+        dtype = resolve_dtype(device, dtype)
+        model = artifact.build_model(device=device, dtype=dtype)
+        
         return cls(artifact=artifact, model=model)
-    
-    @staticmethod
-    def resolve_device(device: torch.device | str | None) -> torch.device:
-        """
-        Resolve a device specification into a concrete ``torch.device``.
-
-        Args:
-            device: Requested device. If ``None``, CUDA is used when available;
-                otherwise CPU is used.
-
-        Returns:
-            A normalized torch device.
-        """
-        if device is None:
-            return torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        return torch.device(device)
 
     def predict_proba(
         self,
@@ -134,11 +126,11 @@ class GCNNInferencer:
 
         result_df = df.loc[rows_all, [x_col, y_col, region_col]].copy().reset_index(drop=True)
 
-        for class_idx in range(probs_all.shape[1]):
-            result_df[f"prob_class{class_idx}"] = probs_all[:, class_idx]
+        for class_idx, class_name in enumerate(self.artifact.classes_):
+            result_df[f"prob_{class_name}"] = probs_all[:, class_idx]
 
         ordered_cols = [x_col, y_col, region_col] + [
-            f"prob_class{class_idx}" for class_idx in range(probs_all.shape[1])
+            f"prob_{class_name}" for class_name in self.artifact.classes_
         ]
         result_df = result_df[ordered_cols]
 

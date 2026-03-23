@@ -2,14 +2,16 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Self
 
 import torch
+
 from disco.config import PreProcessConfig
 from disco.core.autoencoder.artifact import AutoencoderArtifact
-
 from disco.core.gcnn.artifact import GCNNArtifact
 from disco.core.latent_diffusion.artifact import LatentDiffusionArtifact
 from disco.core.pixel_diffusion.artifact import PixelDiffusionArtifact
+from disco.utils import resolve_device, resolve_dtype
 
 from .inferencer import DiscoInferencer
 
@@ -17,10 +19,10 @@ from .inferencer import DiscoInferencer
 @dataclass(frozen=True, slots=True)
 class DiscoArtifact:
     """
-    Serializable container bundling all sub-artifacts required
-    for inference.
+    Serializable container bundling all sub-artifacts required to build a
+    full DISCO inference pipeline.
     """
-    
+
     preprocessor_config: PreProcessConfig | None = None
     autoencoder_artifact: AutoencoderArtifact | None = None
     gcnn_artifact: GCNNArtifact | None = None
@@ -28,68 +30,63 @@ class DiscoArtifact:
     pixel_diffusion_artifact: PixelDiffusionArtifact | None = None
 
     def save(self, path: str | Path) -> None:
-        """Serialize artifact to disk."""
+        """
+        Serialize this artifact to disk.
+
+        Args:
+            path: Destination path for the serialized artifact.
+        """
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
         torch.save(self, path)
 
-    @staticmethod
-    def load(path: str | Path) -> "DiscoArtifact":
-        """Load artifact from disk."""
+    @classmethod
+    def load(cls, path: str | Path) -> Self:
+        """
+        Load a serialized ``DiscoArtifact`` from disk.
+
+        Args:
+            path: Path to a previously saved artifact file.
+
+        Returns:
+            Loaded ``DiscoArtifact`` instance.
+
+        Raises:
+            FileNotFoundError: If the artifact file does not exist.
+            TypeError: If the loaded object is not a ``DiscoArtifact``.
+        """
         path = Path(path)
         if not path.exists():
             raise FileNotFoundError(f"DiscoArtifact file not found: {path}")
-        obj = torch.load(path, map_location="cpu") # TODO: CHANGE THIS CPU!!
-        if not isinstance(obj, DiscoArtifact):
-            raise TypeError("Loaded object is not a DiscoArtifact.")
+
+        obj = torch.load(path, map_location="cpu")
+
+        if not isinstance(obj, cls):
+            raise TypeError(f"Loaded object is not a {cls.__name__}.")
+
         return obj
-    
-    # TODO: MAKE TYPES FOR THE KWARGS
+
     def build_inferencer(
         self,
         device: str | torch.device = "cpu",
         dtype: torch.dtype | None = None,
-        *,
-        ld_kwargs: dict[str, Any] | None = None,
-        pd_kwargs: dict[str, Any] | None = None,
-        ae_kwargs: dict[str, Any] | None = None,
-        gcnn_kwargs: dict[str, Any] | None = None,
     ) -> DiscoInferencer:
         """
-        Construct a DiscoInferencer from this artifact.
+        Construct a ``DiscoInferencer`` from this artifact.
+
+        Args:
+            device: Target device for runtime inference components.
+            dtype: Target floating-point dtype for inference components. When
+                omitted, a device-appropriate dtype is resolved automatically.
+
+        Returns:
+            Fully constructed ``DiscoInferencer``.
         """
-        device = torch.device(device)
-        dtype = dtype or torch.float32
+        resolved_device = resolve_device(device)
+        resolved_dtype = resolve_dtype(device=resolved_device, dtype=dtype)
 
-        ld_inferencer = (
-            self.latent_diffuser.from_artifact(device=device, dtype=dtype, **(ld_kwargs or {}))
-            if self.latent_diffuser is not None
-            else None
-        )
-
-        pd = (
-            self.pixel_diffuser.(device=device, dtype=dtype, **(pd_kwargs or {}))
-            if self.pixel_diffuser is not None
-            else None
-        )
-
-        ae = (
-            self.autoencoder.build_inferencer(device=device, dtype=dtype, **(ae_kwargs or {}))
-            if self.autoencoder is not None
-            else None
-        )
-
-        gcnn = (
-            self.gcnn.build_inferencer(device=device, dtype=dtype, **(gcnn_kwargs or {}))
-            if self.gcnn is not None
-            else None
-        )
-
-        return DiscoInferencer(
-            ae=ae,
-            gcnn=gcnn,
-            ld=ld,
-            pd=pd,
-            device=device,
-            dtype=dtype,
+        return DiscoInferencer.from_artifact(
+            artifact=self,
+            device=resolved_device,
+            dtype=resolved_dtype,
         )

@@ -8,6 +8,8 @@ import torch
 
 from disco.config import InferenceMode
 from disco.core.latent_diffusion.architecture import LatentArchitectureSpec
+from disco.core.latent_diffusion.infer.base import BaseLatentInferencer
+from disco.core.latent_diffusion.infer.registry import _LATENT_INFERENCER_REGISTRY
 
 
 @dataclass(frozen=True, slots=True)
@@ -115,4 +117,17 @@ class LatentDiffusionArtifact:
             architecture=LatentArchitectureSpec.from_dict(architecture_payload),
             inference_mode=InferenceMode(payload["inference_mode"]),
             img_size=payload["img_size"],
+        )
+        
+    def build_inferencer(
+        self,
+        *,
+        device: torch.device | str | None = None,
+        dtype: torch.dtype | None = None,
+    ) -> BaseLatentInferencer:
+        inferencer_cls = _LATENT_INFERENCER_REGISTRY[self.inference_mode]
+        return inferencer_cls.from_artifact(
+            artifact=self,
+            device=device,
+            dtype=dtype,
         )

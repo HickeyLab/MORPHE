@@ -11,7 +11,7 @@ from disco.core.latent_diffusion.architecture import LatentArchitectureSpec
 from disco.core.latent_diffusion.data.builders import build_three_dim_dataset
 from disco.core.latent_diffusion.train.base import LatentTrainStrategy
 
-from disco.core.latent_diffusion.train.diffusion_trainer import DiffusionTrainer
+from disco.core.latent_diffusion.train.trainer import DiffusionTrainer
 from disco.core.latent_diffusion.train.train_config import LatentTrainerConfig
 from disco.utils import get_config_attr
 

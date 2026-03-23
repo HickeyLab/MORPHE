@@ -10,7 +10,7 @@ from torch.utils.data import Dataset
 from disco.config import InferenceMode
 from disco.core.latent_diffusion.architecture import LatentArchitectureSpec
 from disco.core.latent_diffusion.train.train_config import LatentTrainerConfig
-from disco.core.latent_diffusion.train.diffusion_trainer import DiffusionTrainer
+from disco.core.latent_diffusion.train.trainer import DiffusionTrainer
 
 
 class LatentTrainStrategy(ABC):

@@ -98,6 +98,7 @@ class Cascade512Evaluator:
         *,
         z_cond: torch.Tensor,
         target_shape: torch.Size,
+        visualization_inference_steps: int,
     ) -> torch.Tensor:
         """
         Sample predicted images from a conditional latent batch.
@@ -117,7 +118,7 @@ class Cascade512Evaluator:
         batch_size = z_cond.size(0)
 
         self.noise_scheduler.set_timesteps(
-            self.cfg.visualization_inference_steps,
+            visualization_inference_steps,
             device=self.device,
         )
 
@@ -168,13 +169,13 @@ class Cascade512Evaluator:
         hist, _ = np.histogram(flat, bins=num_types, range=(0, num_types))
         return hist / (hist.sum() + 1e-8)
 
-    # ==================================================================
     # Visualize sampled predictions
-    # ==================================================================
     @torch.no_grad()
     def visualize_epoch(
         self,
         epoch_idx: int,
+        visualization_inference_steps: int,
+        max_batches: int = 2,
     ) -> None:
         """
         Generate and save qualitative validation samples for a given epoch.
@@ -194,6 +195,7 @@ class Cascade512Evaluator:
             pred = self._sample_batch(
                 z_cond=z_cond,
                 target_shape=target_imgs.shape,
+                visualization_inference_steps=visualization_inference_steps,
             )
             pred_vis = (pred.clamp(-1, 1) + 1) / 2
             target_vis = (target_imgs.clamp(-1, 1) + 1) / 2
@@ -203,7 +205,7 @@ class Cascade512Evaluator:
 
             grids.append(grid)
             saved += 1
-            if saved >= self.cfg.visualize_max_batches:
+            if saved >= max_batches:
                 break
 
         if grids:
@@ -212,15 +214,16 @@ class Cascade512Evaluator:
             vutils.save_image(final_grid, out_path)
             self._print(f"[Visualize] Saved {out_path}")
 
-    # ==================================================================
     # Composition Evaluation
-    # ==================================================================
     @torch.no_grad()
     def eval_composition_batch(
         self,
         *,
         epoch_idx: int,
+        visualization_inference_steps: int,
         ae_model: AutoencoderKL | None = None,
+        chart_left_title: str = "Original",
+        chart_right_title: str = "Predicted",
     ) -> None:
         """
         Generate one validation batch, infer predicted/original type
@@ -228,6 +231,7 @@ class Cascade512Evaluator:
 
         Args:
             epoch_idx: Epoch index used in output file naming.
+            visualization_inference_steps: Number of inference steps for visualization.
             ae_model: Optional override autoencoder for type-map inference.
                 Falls back to self.vae if not provided.
         """
@@ -244,6 +248,7 @@ class Cascade512Evaluator:
         pred_imgs = self._sample_batch(
             z_cond=z_cond,
             target_shape=target_imgs.shape,
+            visualization_inference_steps=visualization_inference_steps,
         )
         pred_vis = (pred_imgs.clamp(-1, 1) + 1) / 2
         target_vis = (target_imgs.clamp(-1, 1) + 1) / 2
@@ -271,26 +276,8 @@ class Cascade512Evaluator:
                 xs=xs,
                 left_vals=np.asarray(original_fractions[i]),
                 right_vals=np.asarray(predicted_fractions[i]),
-                left_title=self.cfg.chart_left_title,
-                right_title=self.cfg.chart_right_title,
+                left_title=chart_left_title,
+                right_title=chart_right_title,
                 out_path=out_path,
             )
             self._print(f"[CompEval] Saved {out_path}")
-
-    @torch.no_grad()
-    def maybe_run_epoch_evaluation(
-        self,
-        *,
-        epoch_idx: int,
-    ) -> None:
-        """
-        Run optional qualitative evaluation hooks configured for each epoch.
-        """
-        if not self.cfg.enable_epoch_visualizations:
-            return
-
-        if self.cfg.enable_sample_visualization:
-            self.visualize_epoch(epoch_idx)
-
-        if self.cfg.enable_composition_eval:
-            self.eval_composition_batch(epoch_idx=epoch_idx)

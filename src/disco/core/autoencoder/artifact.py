@@ -2,16 +2,18 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Mapping
+from typing import Self
 import torch
 
+from disco.core.autoencoder.inferencer import AutoencoderInferencer
+from disco.utils import resolve_device, resolve_dtype
 from src.disco.core.autoencoder.model import Autoencoder
 
 
 @dataclass(frozen=True)
 class AutoencoderArtifact:
-    state_dict: Mapping[str, torch.Tensor]
-    input_cols: list[str]
+    state_dict: dict[str, torch.Tensor]
+    input_cols: tuple[str, ...]
     in_dim: int
     bottleneck_dim: int
     hidden_dim: int
@@ -22,6 +24,7 @@ class AutoencoderArtifact:
         self,
         *,
         device: torch.device | str | None = None,
+        dtype: torch.dtype | None = None,
     ) -> Autoencoder:
         model = Autoencoder(
             in_dim=self.in_dim,
@@ -30,13 +33,11 @@ class AutoencoderArtifact:
         )
         model.load_state_dict(self.state_dict, strict=True)
         
-        if not device:
-            device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        else:
-            device = torch.device(device)
-
-        model = model.to(device)
+        device = resolve_device(device)
+        dtype = resolve_dtype(device, dtype)
+        model = model.to(device=device, dtype=dtype)
         model.eval()
+        
         return model
 
     def save(self, path: str | Path) -> None:
@@ -56,19 +57,28 @@ class AutoencoderArtifact:
         torch.save(payload, str(path))
 
 
-    @staticmethod
-    def load(path: str | Path) -> "AutoencoderArtifact":
+    @classmethod
+    def load(cls,path: str | Path) -> Self:
         path = Path(path)
         try:
             payload = torch.load(str(path), map_location="cpu", weights_only=True)
         except TypeError:
             payload = torch.load(str(path), map_location="cpu")
 
-        for k in ("state_dict", "in_dim", "bottleneck_dim", "hidden_dim", "z_min", "z_max", "input_cols"):
-            if k not in payload:
-                raise ValueError(f"Invalid artifact file: missing key '{k}'")
+        required_keys = {
+            "state_dict",
+            "input_cols",
+            "in_dim",
+            "bottleneck_dim",
+            "hidden_dim",
+            "z_min",
+            "z_max",
+        }
+        missing = required_keys - payload.keys()
+        if missing:
+            raise ValueError(f"Invalid artifact file: missing keys {sorted(missing)}")
 
-        return AutoencoderArtifact(
+        return cls(
             state_dict=payload["state_dict"],
             input_cols=payload["input_cols"],
             in_dim=int(payload["in_dim"]),
@@ -77,3 +87,17 @@ class AutoencoderArtifact:
             z_min=payload["z_min"],
             z_max=payload["z_max"],
         )
+        
+    def build_inferencer(
+        self,
+        device: str | torch.device | None = None,
+        dtype: torch.dtype | None = None,
+    ) -> AutoencoderInferencer:
+        """
+        Construct an Autoencoder inferencer from this artifact.
+        The returned model will be in eval mode and moved to the specified device and dtype.
+
+        Note that the artifact itself is device-agnostic, so it can be loaded on any device regardless of where it was originally saved. The model weights will be moved to the target device when building the inferencer, ensuring that the inferencer is compatible with the user's hardware setup.
+        """
+        model = AutoencoderInferencer.from_artifact(self, device=device, dtype=dtype)
+        return model

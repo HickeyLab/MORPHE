@@ -1,11 +1,25 @@
 import copy
+
 import pandas as pd
 
 from ..config import PreProcessConfig
 
-
 class PreProcessor:
+    """
+    Preprocess spatial cell data according to a preprocessing configuration.
+
+    This class currently supports reducing the coordinate grid dimensions while
+    preserving unique cell positions within each region.
+    """
+
     def __init__(self, config: PreProcessConfig) -> None:
+        """
+        Initialize the preprocessor.
+
+        Args:
+            config: Preprocessing configuration containing the original grid
+                dimensions and any other preprocessing settings.
+        """
         self.config = config
 
     def _calculate_dimensions(
@@ -13,6 +27,22 @@ class PreProcessor:
         passing: tuple[int, int],
         failing: tuple[int, int],
     ) -> tuple[int, int]:
+        """
+        Compute the midpoint dimensions between a known passing size and a known
+        failing size.
+
+        If the midpoint collapses to the failing dimensions, the passing
+        dimensions are returned to terminate the binary-search-like reduction.
+
+        Args:
+            passing: Most recent dimensions known to succeed without coordinate
+                conflicts.
+            failing: Most recent dimensions known to fail due to coordinate
+                collisions.
+
+        Returns:
+            The next dimensions to test.
+        """
         x_p, y_p = passing
         x_f, y_f = failing
 
@@ -26,13 +56,23 @@ class PreProcessor:
 
         return new
 
-    # Scales a coordinate pair from the grid with the original dimensions to the new dimensions
     def _compute_new_coord_pair(
         self,
         coord_pair: tuple[float, float],
         dimensions: tuple[int, int],
         original_dimensions: tuple[int, int],
     ) -> tuple[int, int]:
+        """
+        Scale a coordinate pair from the original grid into a reduced grid.
+
+        Args:
+            coord_pair: Original `(x, y)` coordinate pair.
+            dimensions: Target grid dimensions.
+            original_dimensions: Original grid dimensions.
+
+        Returns:
+            The rescaled coordinate pair as integer grid coordinates.
+        """
         c_1, c_2 = coord_pair
         x, y = dimensions
         x_i, y_i = original_dimensions
@@ -42,71 +82,116 @@ class PreProcessor:
 
         return (round(c_1 * x_factor), round(c_2 * y_factor))
 
-    # Returns the df at the optimally reduced dimensions. Cell corrdinates are changed but all other data remains the same.
     def _reduce_dimensions(
         self,
         df_initial: pd.DataFrame,
         original_dimensions: tuple[int, int],
+        *,
+        verbose: bool = False,
     ) -> tuple[pd.DataFrame, tuple[int, int]]:
-        failing_dimensions = (1, 1)  # Failing dimensions represent the most recent dimensions to run successfully without conflict- Start at (1, 1) to avoid divide by 0 in increment_dimensions
+        """
+        Reduce grid dimensions as much as possible without introducing
+        coordinate collisions within any region.
+
+        The method performs a binary-search-like procedure over possible grid
+        sizes. For each candidate size, all cell coordinates are rescaled and
+        checked for uniqueness within each region. If a collision is found, the
+        candidate dimensions are treated as failing; otherwise, they are treated
+        as passing.
+
+        Args:
+            df_initial: Input dataframe containing at least `unique_region`,
+                `x`, and `y` columns.
+            original_dimensions: Original grid dimensions used as the starting
+                upper bound for reduction.
+            verbose: Whether to print progress information during reduction.
+
+        Returns:
+            A tuple containing:
+                - A dataframe with reduced `x` and `y` coordinates.
+                - The optimal reduced dimensions.
+        """
+        failing_dimensions = (1, 1)
         passing_dimensions = original_dimensions
         dimensions = failing_dimensions
         restart_outer_loop = True
+        df = copy.deepcopy(df_initial)
 
-        # Loop executes as long as calculate_dimensions doesn't repeatedly return the same dimensions. At this point, we know we have found the optimal dimensions
         while dimensions != passing_dimensions:
-            # update which dimension
             if restart_outer_loop:
                 failing_dimensions = dimensions
             else:
                 passing_dimensions = dimensions
 
-            dimensions = self._calculate_dimensions(passing_dimensions, failing_dimensions)
-            print(f"Current dimensions: {dimensions}")
+            dimensions = self._calculate_dimensions(
+                passing_dimensions,
+                failing_dimensions,
+            )
+            if verbose:
+                print(f"Current dimensions: {dimensions}")
 
-            df = copy.deepcopy(df_initial)  # make a copy of the initial data to convert to new coordinates
+            df = copy.deepcopy(df_initial)
             grouped_by_region = df.groupby("unique_region")
-            restart_outer_loop = False  # flag to indicate whether to restart the while loop
+            restart_outer_loop = False
 
-            coords = set()
+            coords: set[tuple[int, int]] = set()
             for region_name, region_data in grouped_by_region:
-                coords.clear()  # all of the coordinates with a cell at that coordinate thus far- we use a set for O(1)
+                coords.clear()
 
-                # iterate through rows in original data set for the region
                 for idx, row in region_data.iterrows():
                     x = row["x"]
                     y = row["y"]
                     coord_pair = (x, y)
 
-                    # compute the new cell coordinates for the reduced grid space
                     new_coord_pair = self._compute_new_coord_pair(
-                        coord_pair, dimensions, original_dimensions
+                        coord_pair,
+                        dimensions,
+                        original_dimensions,
                     )
 
-                    # check to see if there is a conflict
                     if new_coord_pair in coords and coord_pair != (4915.0, 7055.0):
-                        # advance the while loop to increment the dimensions
-                        print(
-                            f"failing coordinate pair: {new_coord_pair}, "
-                            f"scaled from {coord_pair} in region {region_name}"
-                        )
+                        if verbose:
+                            print(
+                                f"failing coordinate pair: {new_coord_pair}, "
+                                f"scaled from {coord_pair} in region {region_name}"
+                            )
                         restart_outer_loop = True
                         break
-                    else:
-                        x_n, y_n = new_coord_pair
-                        df.at[idx, "x"] = x_n
-                        df.at[idx, "y"] = y_n
-                        coords.add(new_coord_pair)
+
+                    x_n, y_n = new_coord_pair
+                    df.at[idx, "x"] = x_n
+                    df.at[idx, "y"] = y_n
+                    coords.add(new_coord_pair)
 
                 if restart_outer_loop:
                     break
 
-                print(f"successfully reduced region {region_name}")
+                if verbose:
+                    print(f"successfully reduced region {region_name}")
 
         return df, dimensions
 
-    def preprocess(self, df: pd.DataFrame) -> tuple[pd.DataFrame, tuple[int, int]]:
+    def preprocess(
+        self,
+        df: pd.DataFrame,
+        *,
+        verbose: bool = False,
+    ) -> tuple[pd.DataFrame, tuple[int, int]]:
+        """
+        Run preprocessing on the input dataframe.
+
+        Args:
+            df: Input dataframe to preprocess.
+            verbose: Whether to print progress information during preprocessing.
+
+        Returns:
+            A tuple containing:
+                - The preprocessed dataframe.
+                - The reduced grid dimensions.
+        """
         new_df, new_dimensions = self._reduce_dimensions(
-            df, self.config.original_dimensions
+            df,
+            self.config.original_dimensions,
+            verbose=verbose,
         )
         return new_df, new_dimensions

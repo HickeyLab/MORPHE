@@ -7,11 +7,13 @@ import numpy as np
 import torch
 from PIL import Image
 from torchvision import transforms
+from diffusers import AutoencoderKL, DDPMScheduler, UNet2DConditionModel # type: ignore
 
 from disco.config import InferenceMode
 from disco.core.latent_diffusion.infer.base import BaseLatentInferencer 
 from disco.core.latent_diffusion.infer.run_config import GapfillRunConfig
 from disco.core.latent_diffusion.artifact import LatentDiffusionArtifact
+from disco.core.latent_diffusion.model import BBoxEncoder, CondEncoder
 from disco.viz.decoded_img import plot_decoded_image
 
 
@@ -28,11 +30,17 @@ class GapfillInferencer(BaseLatentInferencer):
         self,
         *,
         artifact: LatentDiffusionArtifact,
-        device: torch.device | str | None = None,
-        dtype: torch.dtype | None = None,
+        unet: UNet2DConditionModel,
+        vae: AutoencoderKL,
+        cond_encoder: CondEncoder,
+        coord_encoder: None = None,
+        bbox_encoder: BBoxEncoder,
+        noise_scheduler: DDPMScheduler,
+        device: torch.device,
+        dtype: torch.dtype,
     ) -> None:
         """
-        Initialize a gap-filling inferencer from a trained latent artifact.
+        Initialize a gap-filling inferencer from fully constructed runtime components.
 
         This validates that the artifact was trained for gap-filling inference
         and that all required runtime components are present before delegating
@@ -40,10 +48,14 @@ class GapfillInferencer(BaseLatentInferencer):
 
         Args:
             artifact: Trained latent diffusion artifact for gap-filling.
-            device: Device to run inference on. If ``None``, a default device
-                is resolved by the base inferencer.
-            dtype: Floating-point dtype to use for inference. If ``None``,
-                a default dtype is resolved by the base inferencer.
+            unet: Reconstructed diffusion UNet.
+            vae: Reconstructed variational autoencoder.
+            cond_encoder: Conditioning encoder used during inference.
+            coord_encoder: Optional coordinate encoder.
+            bbox_encoder: Bounding-box encoder required for gap-filling.
+            noise_scheduler: Diffusion scheduler used for denoising.
+            device: Device to run inference on.
+            dtype: Floating-point dtype to use for inference.
 
         Raises:
             RuntimeError: If the artifact was not created for gap-filling
@@ -56,13 +68,7 @@ class GapfillInferencer(BaseLatentInferencer):
                 f"{InferenceMode.GAPFILL!r}, got {artifact.inference_mode!r}."
             )
 
-        super().__init__(
-            artifact=artifact,
-            device=device,
-            dtype=dtype,
-        )
-
-        if self.bbox_encoder is None:
+        if bbox_encoder is None or not isinstance(bbox_encoder, BBoxEncoder):
             raise RuntimeError(
                 "GapfillInferencer requires a bbox encoder in the artifact runtime."
             )
@@ -72,6 +78,18 @@ class GapfillInferencer(BaseLatentInferencer):
                 "GapfillInferencer requires artifact.img_size to be defined."
             )
 
+        super().__init__(
+            artifact=artifact,
+            unet=unet,
+            vae=vae,
+            cond_encoder=cond_encoder,
+            coord_encoder=coord_encoder,
+            bbox_encoder=bbox_encoder,
+            noise_scheduler=noise_scheduler,
+            device=device,
+            dtype=dtype,
+        )
+
         self.image_transform: Callable[[Image.Image], torch.Tensor] = transforms.Compose(
             [
                 transforms.Resize((artifact.img_size, artifact.img_size)),
@@ -79,6 +97,7 @@ class GapfillInferencer(BaseLatentInferencer):
                 transforms.Normalize([0.5] * 3, [0.5] * 3),
             ]
         )
+ 
 
     def _create_latent_mask(
         self,

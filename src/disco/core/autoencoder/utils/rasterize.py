@@ -21,6 +21,45 @@ def rasterize_rgb_regions(
     image_size: int = 1024,
     filename_prefix: str = "region",
 ) -> None:
+    """
+    Rasterize per-region RGB data from a dataframe into image files.
+
+    This function groups rows in ``result_df`` by a region identifier and
+    generates one RGB image per region. Each row represents a single pixel
+    location with associated RGB values. Pixels are placed into an
+    ``image_size x image_size`` canvas, with unspecified pixels initialized
+    to white.
+
+    Notes:
+        - Coordinates are rounded to the nearest integer pixel location.
+        - RGB values are written in OpenCV BGR order when saving.
+        - Pixels falling outside the image bounds are ignored.
+
+    Args:
+        result_df: DataFrame containing at minimum:
+            - a region identifier column,
+            - x/y coordinate columns,
+            - RGB value columns.
+        save_dir: Directory where output images will be saved. Created if it
+            does not exist.
+        region_col: Column name identifying regions. Each unique value produces
+            a separate output image.
+        x_col: Column name for x-coordinates (horizontal axis).
+        y_col: Column name for y-coordinates (vertical axis).
+        r_col: Column name for red channel values.
+        g_col: Column name for green channel values.
+        b_col: Column name for blue channel values.
+        image_size: Height and width (in pixels) of the output square images.
+        filename_prefix: Prefix used when naming output files. Files are saved
+            as ``{filename_prefix}_{i}.png``.
+
+    Returns:
+        None. Images are written to disk.
+
+    Raises:
+        KeyError: If required columns are missing from ``result_df``.
+    """
+    
     save_dir = Path(save_dir)
     save_dir.mkdir(parents=True, exist_ok=True)
 

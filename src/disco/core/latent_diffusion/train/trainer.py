@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
+import random
 
 import numpy as np
 import torch
@@ -20,6 +22,14 @@ from disco.utils import resolve_device, resolve_dtype
 def _get_scaling_factor(vae: AutoencoderKL) -> float:
     return float(getattr(getattr(vae, "config", None), "scaling_factor", 0.18215))
 
+
+@dataclass
+class LatentTrainResult:
+    artifact: LatentDiffusionArtifact
+    train_loss_history: list[float]
+    val_loss_history: list[float]
+
+
 class DiffusionTrainer:
     """
     Trainer for latent diffusion models.
@@ -38,16 +48,17 @@ class DiffusionTrainer:
         cfg: LatentTrainerConfig,
         device: torch.device | str | None = None,
         dtype: torch.dtype | None = None,
+        seed: int | None = None,
     ) -> None:
         self.root_dir = Path(root_dir)
         self.train_strategy = train_strategy
         self.cfg = cfg
+        self.seed = seed
 
         self.device = resolve_device(device)
         self.dtype = resolve_dtype(self.device, dtype)
 
-        self.save_dir = Path(self.cfg.save_dir)
-        self.save_dir.mkdir(parents=True, exist_ok=True)
+        self._set_seed()
 
         self.train_loss_history: list[float] = []
         self.val_loss_history: list[float] = []
@@ -60,6 +71,21 @@ class DiffusionTrainer:
         self._build_dataloaders()
         self._build_optimizer()
         self._prepare_with_accelerator()
+
+    def _set_seed(self) -> None:
+        """
+        Seed Python, NumPy, and PyTorch RNGs when a seed is provided.
+        """
+        if self.seed is None:
+            return
+
+        random.seed(self.seed)
+        np.random.seed(self.seed)
+        torch.manual_seed(self.seed)
+
+        if torch.cuda.is_available():
+            torch.cuda.manual_seed(self.seed)
+            torch.cuda.manual_seed_all(self.seed)
 
     def _build_components(self) -> None:
         """
@@ -179,7 +205,7 @@ class DiffusionTrainer:
         if has_bbox:
             self.bbox_encoder = prepared_modules[idx]
 
-    def _train_one_epoch(self, *, epoch: int) -> float:
+    def _train_one_epoch(self, *, epoch: int, verbose: bool) -> float:
         """
         Run one full training epoch and return the mean training loss.
         """
@@ -193,10 +219,14 @@ class DiffusionTrainer:
             self.bbox_encoder.train()
 
         losses: list[float] = []
-        pbar = tqdm(self.train_loader, desc=f"Epoch {epoch} [Train]")
+        pbar = tqdm(
+            self.train_loader,
+            desc=f"Epoch {epoch} [Train]",
+            disable=not verbose,
+        )
 
         for batch in pbar:
-            with self.accelerator.accumulate(self.unet): # type: ignore
+            with self.accelerator.accumulate(self.unet):  # type: ignore
                 loss = self.train_strategy.train_step(self, batch)
 
                 self.accelerator.backward(loss)
@@ -244,12 +274,16 @@ class DiffusionTrainer:
             img_size=getattr(self.train_strategy, "img_size", None),
         )
 
-    def _save_artifact(self, artifact: LatentDiffusionArtifact, name: str) -> Path:
+    def _save_artifact(self, artifact: LatentDiffusionArtifact, name: str, verbose: bool) -> Path:
         """
         Persist an already-built artifact to disk and return its path.
         """
-        artifact_path = self.save_dir / name
+        artifact_path = self.cfg.save_dir / name  # type: ignore
         artifact.save(artifact_path)
+
+        if verbose:
+            print(f"[DiffusionTrainer] Saved artifact to {artifact_path}.")
+
         return artifact_path
 
     def train(
@@ -259,8 +293,8 @@ class DiffusionTrainer:
         save_last: bool = True,
         checkpoint_every_epochs: int | None = None,
         save_name: str = "latent_diffuser_artifact.pt",
-        return_history: bool = False,
-    ) -> LatentDiffusionArtifact | tuple[LatentDiffusionArtifact, tuple[list[float], list[float]]]:
+        verbose: bool = False,
+    ) -> LatentTrainResult:
         """
         Run the full training loop and return the best-performing artifact.
 
@@ -298,6 +332,24 @@ class DiffusionTrainer:
             - A tuple of:
                 (best artifact, (train_loss_history, val_loss_history))
         """
+        if verbose:
+            print(
+                "[DiffusionTrainer] Starting training "
+                f"(device={self.device}, dtype={self.dtype}, seed={self.seed}, "
+                f"mixed_precision={self.cfg.mixed_precision})."
+            )
+            if self.seed is not None:
+                print(f"[DiffusionTrainer] Random seed was set to {self.seed}.")
+            print("[DiffusionTrainer] Built model components and froze VAE.")
+            print(
+                "[DiffusionTrainer] Built dataloaders "
+                f"(train_batch_size={self.cfg.batch_size}, "
+                f"val_batch_size={self.cfg.val_batch_size})."
+            )
+            print(f"[DiffusionTrainer] Built AdamW optimizer (lr={self.cfg.lr}).")
+            print("[DiffusionTrainer] Prepared models, dataloaders, and optimizer with Accelerator.")
+            print(f"[DiffusionTrainer] Starting training for {self.cfg.epochs} epochs.")
+
         best_val = float("inf")
         patience_cnt = 0
         patience = getattr(self.train_strategy, "patience", None)
@@ -310,7 +362,7 @@ class DiffusionTrainer:
         best_suffix = save_path.suffix or ".pt"
 
         for epoch in range(self.cfg.epochs):
-            train_loss = self._train_one_epoch(epoch=epoch)
+            train_loss = self._train_one_epoch(epoch=epoch, verbose=verbose)
             self.train_loss_history.append(train_loss)
 
             val_loss = self.train_strategy.validate_step(trainer=self)
@@ -326,8 +378,13 @@ class DiffusionTrainer:
                 self.accelerator.wait_for_everyone()
 
                 best_artifact = self._build_artifact()
+                if verbose:
+                    print(
+                        f"[DiffusionTrainer] New best validation loss at epoch {epoch}: "
+                        f"{best_val:.6f}."
+                    )
                 if save_best:
-                    self._save_artifact(best_artifact, name=best_name)
+                    self._save_artifact(best_artifact, name=best_name, verbose=verbose)
 
             if (
                 checkpoint_every_epochs is not None
@@ -336,12 +393,17 @@ class DiffusionTrainer:
             ):
                 checkpoint_artifact = self._build_artifact()
                 checkpoint_name = f"{best_stem}_epoch_{epoch + 1}{best_suffix}"
-                self._save_artifact(checkpoint_artifact, name=checkpoint_name)
+                self._save_artifact(checkpoint_artifact, name=checkpoint_name, verbose=verbose)
 
             if patience is not None:
                 patience_cnt = 0 if improved else patience_cnt + 1
                 if patience_cnt >= patience:
                     self.accelerator.print("Early stopping.")
+                    if verbose:
+                        print(
+                            f"[DiffusionTrainer] Early stopping triggered at epoch {epoch} "
+                            f"with patience={patience}."
+                        )
                     break
 
             if getattr(self.train_strategy, "decay_enabled", False):
@@ -350,6 +412,11 @@ class DiffusionTrainer:
                 if every is not None and every > 0 and (epoch + 1) % every == 0:
                     for group in self.optimizer.param_groups:
                         group["lr"] *= factor
+                    if verbose:
+                        print(
+                            "[DiffusionTrainer] Decayed learning rate by factor "
+                            f"{factor} at epoch {epoch}."
+                        )
 
         if best_artifact is None:
             best_artifact = self._build_artifact()
@@ -357,6 +424,13 @@ class DiffusionTrainer:
         if save_last:
             last_artifact = self._build_artifact()
             last_name = f"{best_stem}_last{best_suffix}"
-            self._save_artifact(last_artifact, name=last_name)
+            self._save_artifact(last_artifact, name=last_name, verbose=verbose)
 
-        return best_artifact if return_history else best_artifact, (self.train_loss_history, self.val_loss_history)
+        if verbose:
+            print("[DiffusionTrainer] Training complete.")
+
+        return LatentTrainResult(
+            artifact=best_artifact,
+            train_loss_history=self.train_loss_history,
+            val_loss_history=self.val_loss_history
+        )

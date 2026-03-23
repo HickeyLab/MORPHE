@@ -3,17 +3,19 @@ from __future__ import annotations
 from collections.abc import Callable, Sequence
 from dataclasses import replace
 from pathlib import Path
-from typing import Literal, cast
+from typing import Literal
 
 import numpy as np
 import torch
 from PIL import Image
 from torchvision import transforms
+from diffusers import AutoencoderKL, DDPMScheduler, UNet2DConditionModel # type: ignore
 
 from disco.config import InferenceMode
 from disco.core.latent_diffusion.artifact import LatentDiffusionArtifact
 from disco.core.latent_diffusion.infer.base import BaseLatentInferencer
 from disco.core.latent_diffusion.infer.run_config import OutpaintRunConfig
+from disco.core.latent_diffusion.model import BBoxEncoder, CondEncoder
 from disco.viz.decoded_img import plot_decoded_image
 
 Direction = Literal["right", "left", "down", "up"]
@@ -32,8 +34,14 @@ class OutpaintInferencer(BaseLatentInferencer):
         self,
         *,
         artifact: LatentDiffusionArtifact,
-        device: torch.device | str | None = None,
-        dtype: torch.dtype | None = None,
+        unet: UNet2DConditionModel,
+        vae: AutoencoderKL,
+        cond_encoder: CondEncoder,
+        coord_encoder: None,
+        bbox_encoder: BBoxEncoder,
+        noise_scheduler: DDPMScheduler,
+        device: torch.device,
+        dtype: torch.dtype,
     ) -> None:
         """
         Initialize an outpainting inferencer from a trained latent artifact.
@@ -57,13 +65,7 @@ class OutpaintInferencer(BaseLatentInferencer):
                 f"but got {artifact.inference_mode}."
             )
 
-        super().__init__(
-            artifact=artifact,
-            device=device,
-            dtype=dtype,
-        )
-
-        if self.bbox_encoder is None:
+        if bbox_encoder is None:
             raise RuntimeError(
                 "OutpaintInferencer requires bbox_encoder to be present in the artifact."
             )
@@ -72,6 +74,18 @@ class OutpaintInferencer(BaseLatentInferencer):
             raise RuntimeError(
                 "OutpaintInferencer requires artifact.img_size to be defined."
             )
+            
+        super().__init__(
+            artifact=artifact,
+            unet=unet,
+            vae=vae,
+            cond_encoder=cond_encoder,
+            coord_encoder=coord_encoder,
+            bbox_encoder=bbox_encoder,
+            noise_scheduler=noise_scheduler,
+            device=device,
+            dtype=dtype,
+        )
 
         self.transform: Callable[[Image.Image], torch.Tensor] = transforms.Compose(
             [

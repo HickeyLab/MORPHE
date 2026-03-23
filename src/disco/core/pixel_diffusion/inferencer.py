@@ -9,6 +9,7 @@ from torchvision import transforms
 
 from disco.core.pixel_diffusion.artifact import PixelDiffusionArtifact
 from disco.core.pixel_diffusion.models import LatentAdapter, UNet512
+from disco.utils import resolve_device, resolve_dtype
 
 
 class PixelDiffusionInferencer:
@@ -29,15 +30,35 @@ class PixelDiffusionInferencer:
         adapter: LatentAdapter,
         unet512: UNet512,
         noise_scheduler: DDPMScheduler,
-        device: torch.device,
-        dtype: torch.dtype,
+        device: torch.device | str | None = None,
+        dtype: torch.dtype | None = None,
     ) -> None:
+        if not isinstance(artifact, PixelDiffusionArtifact):
+            raise TypeError(
+                f"Expected artifact of type PixelDiffusionArtifact, got {type(artifact)}."
+            )
+        
+        if not adapter or not isinstance(adapter, LatentAdapter):
+            raise ValueError(
+                f"Latent adapter is required for PixelDiffusionInferencer and must be a LatentAdapter instance."
+            )
+        
+        if not unet512 or not isinstance(unet512, UNet512):
+            raise ValueError(
+                f"UNet512 model is required for PixelDiffusionInferencer and must be a UNet512 instance."
+            )
+        
+        if not noise_scheduler or not isinstance(noise_scheduler, DDPMScheduler):
+            raise ValueError(
+                f"Noise scheduler is required for PixelDiffusionInferencer and must be a DDPMScheduler instance."
+            )
+            
         self.artifact = artifact
         self.adapter = adapter
         self.unet512 = unet512
         self.noise_scheduler = noise_scheduler
-        self.device = device
-        self.dtype = dtype
+        self.device = resolve_device(device)
+        self.dtype = resolve_dtype(device=self.device, dtype=dtype)
         self._to_pil = transforms.ToPILImage()
 
         self.adapter.eval()
@@ -51,7 +72,7 @@ class PixelDiffusionInferencer:
         pretrained_path: str = "runwayml/stable-diffusion-v1-5",
         num_inference_steps: int = 150,
         device: torch.device | str | None = None,
-        dtype: torch.dtype | None = None,
+        dtype: torch.dtype| None = None,
     ) -> Self:
         adapter, unet512, noise_scheduler, resolved_device, resolved_dtype = (
             artifact.build_inference_components(

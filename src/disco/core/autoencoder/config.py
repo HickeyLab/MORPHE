@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -8,13 +9,13 @@ import torch
 
 @dataclass(frozen=True, slots=True)
 class AutoencoderTrainerConfig:
-    save_dir: Path = Path("checkpoints")
+    save_dir: str | Path = Path("autoencoder_checkpoints")
     save_best_only: bool = True
     val_ratio: float = 0.1
     batch_size: int = 4096
     num_workers: int = 4
     
-    input_cols: list[str] | None = None
+    input_cols: Sequence[str] | None = None
 
     bottleneck_dim: int = 3
     hidden_dim: int = 512
@@ -22,6 +23,10 @@ class AutoencoderTrainerConfig:
     num_epochs: int = 100
     lr: float = 1e-6
     alpha: float = 0.1
+    
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "save_dir", Path(self.save_dir))
+        self.validate()
 
     def validate(self) -> None:
         # val_ratio
@@ -66,8 +71,8 @@ class AutoencoderTrainerConfig:
         
         # input cols
         if self.input_cols is not None:
-            if not isinstance(self.input_cols, list):
-                raise TypeError("input_cols must be a list of strings or None.")
+            if not isinstance(self.input_cols, Sequence):
+                raise TypeError("input_cols must be a sequence of strings or None.")
             if len(self.input_cols) == 0:
                 raise ValueError("input_cols cannot be empty if provided.")
             if not all(isinstance(col, str) for col in self.input_cols):

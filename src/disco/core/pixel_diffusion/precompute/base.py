@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Generic, Literal, TypeVar
 
@@ -11,8 +12,7 @@ from torch.utils.data import Dataset
 TDataset = TypeVar("TDataset", bound=Dataset)
 TBatch = TypeVar("TBatch")
 TMetadata = TypeVar("TMetadata", bound=dict[str, object])
-
-
+@dataclass(frozen=True)
 class PixelPrecomputeStrategy(ABC, Generic[TDataset, TBatch, TMetadata]):
     """
     Abstract interface for pixel-diffusion dataset precomputation strategies.
@@ -21,6 +21,8 @@ class PixelPrecomputeStrategy(ABC, Generic[TDataset, TBatch, TMetadata]):
     inputs and target images are extracted from each batch, how samples are
     named, and what metadata is written for each saved example.
     """
+    
+    ae_pretrained_path: str = "runwayml/stable-diffusion-v1-5"
 
     @abstractmethod
     def build_dataset(self, root_dir: Path) -> tuple[TDataset, TDataset]:

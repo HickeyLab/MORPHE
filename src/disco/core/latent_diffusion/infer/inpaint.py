@@ -7,13 +7,14 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 from PIL import Image
+from diffusers import AutoencoderKL, DDPMScheduler, UNet2DConditionModel # type: ignore
 
 from disco.config import InferenceMode
 from disco.core.latent_diffusion.infer.base import (
     BaseLatentInferencer
 )
 from disco.core.latent_diffusion.infer.run_config import InpaintRunConfig
-from disco.core.latent_diffusion.model import CoordEncoder
+from disco.core.latent_diffusion.model import BBoxEncoder, CondEncoder, CoordEncoder
 from disco.core.latent_diffusion.artifact import LatentDiffusionArtifact
 from disco.viz.decoded_img import plot_decoded_image, plot_inpainting_triplet
 
@@ -23,8 +24,14 @@ class InpaintInferencer(BaseLatentInferencer):
         self,
         *,
         artifact: LatentDiffusionArtifact,
-        device: torch.device | str | None = None,
-        dtype: torch.dtype | None = None,
+        unet: UNet2DConditionModel,
+        vae: AutoencoderKL,
+        cond_encoder: CondEncoder,
+        coord_encoder: CoordEncoder,
+        bbox_encoder: None,
+        noise_scheduler: DDPMScheduler,
+        device: torch.device,
+        dtype: torch.dtype,
     ) -> None:
         """
         Initialize an inferencer for latent diffusion inpainting.
@@ -52,13 +59,7 @@ class InpaintInferencer(BaseLatentInferencer):
                 f"but got {artifact.inference_mode}."
             )
 
-        super().__init__(
-            artifact=artifact,
-            device=device,
-            dtype=dtype,
-        )
-
-        if self.coord_encoder is None:
+        if coord_encoder is None:
             raise RuntimeError(
                 "InpaintInferencer requires coord_encoder to be present in the artifact."
             )
@@ -67,6 +68,18 @@ class InpaintInferencer(BaseLatentInferencer):
             raise RuntimeError(
                 "InpaintInferencer requires artifact.img_size to be defined."
             )
+            
+        super().__init__(
+            artifact=artifact,
+            unet=unet,
+            vae=vae,
+            cond_encoder=cond_encoder,
+            coord_encoder=coord_encoder,
+            bbox_encoder=bbox_encoder,
+            noise_scheduler=noise_scheduler,
+            device=device,
+            dtype=dtype,
+        )
 
     def _load_image(self, path: str | Path) -> torch.Tensor:
         """

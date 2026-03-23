@@ -18,6 +18,8 @@ from disco.core.pixel_diffusion.precompute.three_dim import ThreeDimImputationPr
 @dataclass(frozen=True)
 class PreProcessConfig:
     original_dimensions: tuple[int, int] = (9406, 9070)
+    batch_size: int = 1
+    num_workers: int = 4
     
 class InferenceMode(StrEnum):
     GAPFILL = "gapfill"

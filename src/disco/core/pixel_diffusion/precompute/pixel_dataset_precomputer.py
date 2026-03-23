@@ -10,6 +10,7 @@ from tqdm.auto import tqdm
 
 from disco.core.latent_diffusion.model import VAEEncoder
 from disco.core.pixel_diffusion.precompute.base import PixelPrecomputeStrategy
+from disco.utils import resolve_device, resolve_dtype
 
 
 class PixelDatasetPrecomputer:
@@ -27,7 +28,7 @@ class PixelDatasetPrecomputer:
         vae_encoder: VAEEncoder,
         precompute_strategy: PixelPrecomputeStrategy,
         device: str | torch.device | None = None,
-        dtype: torch.dtype = torch.float16,
+        dtype: torch.dtype | None = None,
     ) -> None:
         """
         Initialize the precomputer.
@@ -39,8 +40,8 @@ class PixelDatasetPrecomputer:
             device: Target compute device. If omitted, CUDA is used when
                 available; otherwise CPU.
         """
-        self.device = self._resolve_device(device)
-        self.dtype = dtype
+        self.device = resolve_device(device)
+        self.dtype = resolve_dtype(self.device, dtype)
         self.vae_encoder = vae_encoder.to(self.device)
         self.vae_encoder.eval()
         self.precompute_strategy = precompute_strategy
@@ -49,9 +50,9 @@ class PixelDatasetPrecomputer:
     def from_pretrained(
         cls,
         *,
-        vae_path: str | Path = "runwayml/stable-diffusion-v1-5",
         precompute_strategy: PixelPrecomputeStrategy,
         device: str | torch.device | None = None,
+        dtype: torch.dtype | None = None,
     ) -> PixelDatasetPrecomputer:
         """
         Build a precomputer from a pretrained VAE checkpoint/path.
@@ -66,25 +67,17 @@ class PixelDatasetPrecomputer:
         Returns:
             A configured `PixelDatasetPrecomputer`.
         """
-        resolved_device = cls._resolve_device(device)
+        resolved_device = resolve_device(device)
         vae_encoder = VAEEncoder(
-            pretrained_path=str(vae_path),
+            pretrained_path=precompute_strategy.ae_pretrained_path,
             device=resolved_device,
         )
         return cls(
             vae_encoder=vae_encoder,
             precompute_strategy=precompute_strategy,
             device=resolved_device,
+            dtype=dtype,
         )
-
-    @staticmethod
-    def _resolve_device(device: str | torch.device | None) -> torch.device:
-        """
-        Resolve a user-provided device into a concrete `torch.device`.
-        """
-        if device is None:
-            return torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        return torch.device(device)
 
     def _to_cpu_half(self, x: torch.Tensor) -> torch.Tensor:
         """

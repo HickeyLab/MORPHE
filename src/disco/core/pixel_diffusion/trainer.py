@@ -1,21 +1,22 @@
 from __future__ import annotations
 
 from pathlib import Path
+import random
 
 import numpy as np
 import torch
 import torch.nn.functional as F
 from accelerate import Accelerator
-from diffusers import AutoencoderKL, DDPMScheduler # type: ignore
+from diffusers import AutoencoderKL, DDPMScheduler  # type: ignore
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-from Pixel_Diffusion_Decoder.data.dataset_cascade import PrecomputedCascadeDataset
+from disco.core.pixel_diffusion.dataset import PrecomputedCascadeDataset
 from disco.core.pixel_diffusion.artifact import PixelDiffusionArtifact
 from disco.core.pixel_diffusion.config import Cascade512TrainerConfig
 from disco.core.pixel_diffusion.evaluator import Cascade512Evaluator
 from disco.core.pixel_diffusion.models import LatentAdapter, UNet512
-from disco.utils import get_config_attr, set_config_attr
+from disco.utils import get_config_attr, resolve_device, set_config_attr
 
 
 class Cascade512Trainer:
@@ -36,6 +37,9 @@ class Cascade512Trainer:
         train_index: str | Path,
         val_index: str | Path,
         cfg: Cascade512TrainerConfig,
+        device: torch.device | str | None = None,
+        seed: int | None = None,
+        verbose: bool = False,
     ) -> None:
         """
         Initialize trainer state and construct the full training runtime.
@@ -49,9 +53,19 @@ class Cascade512Trainer:
         - scheduler construction
         - accelerator preparation
         - evaluator construction
+
+        Args:
+            train_index: Path to the training index file.
+            val_index: Path to the validation index file.
+            cfg: Trainer configuration.
+            device: Optional requested runtime device. When set to CPU, the
+                accelerator is forced onto CPU. When set to CUDA, training will
+                require CUDA to be available.
         """
         self.cfg = cfg
         self.global_step: int = 0
+        self.seed = seed
+        self.verbose = verbose
 
         self.train_index = Path(train_index)
         self.val_index = Path(val_index)
@@ -60,23 +74,29 @@ class Cascade512Trainer:
         self.loss_history: list[float] = []
         self.val_loss_history: list[float] = []
 
+        self.requested_device = resolve_device(device)
+
+        self._set_seed()
+
         # AMP + distributed manager
         self.accelerator = self._build_accelerator()
         self.device = self.accelerator.device
+
+        if self.requested_device.type == "cuda" and self.device.type != "cuda":
+            raise ValueError(
+                f"Requested CUDA device {self.requested_device}, "
+                f"but accelerator resolved to {self.device}."
+            )
 
         self.train_loader, self.val_loader = self._build_dataloaders()
         self.adapter, self.unet512, self.vae = self._build_models()
         self.optimizer = self._build_optimizer()
         self.noise_scheduler = self._build_noise_scheduler()
 
-        # -------------------------------
         # Prepare all for Accelerator
-        # -------------------------------
         self._prepare_runtime()
 
-        # -------------------------------
         # Evaluator
-        # -------------------------------
         self.evaluator = Cascade512Evaluator(
             adapter=self.adapter,
             unet512=self.unet512,
@@ -88,11 +108,47 @@ class Cascade512Trainer:
             vae=self.vae,
         )
 
+        if self.verbose:
+            self.accelerator.print(
+                "Initialized Cascade512Trainer "
+                f"(device={self.device}, seed={self.seed}, "
+                f"train_batches={len(self.train_loader)}, "
+                f"val_batches={len(self.val_loader)})"
+            )
+
+    def _set_seed(self) -> None:
+        """
+        Seed Python, NumPy, and PyTorch RNGs when a seed is provided.
+        """
+        if self.seed is None:
+            return
+
+        random.seed(self.seed)
+        np.random.seed(self.seed)
+        torch.manual_seed(self.seed)
+
+        if torch.cuda.is_available():
+            torch.cuda.manual_seed(self.seed)
+            torch.cuda.manual_seed_all(self.seed)
+
+        if self.verbose:
+            print(f"Set random seed to {self.seed}.")
+
     def _build_accelerator(self) -> Accelerator:
         """
         Build the Accelerate runtime manager.
+
+        Returns:
+            Configured accelerator instance.
+
+        Notes:
+            CPU is forced only when the requested device is CPU. Otherwise,
+            Accelerate resolves the appropriate runtime device.
         """
-        return Accelerator(mixed_precision="fp16")
+        return Accelerator(
+            mixed_precision="fp16",
+            cpu=self.requested_device.type == "cpu",
+        )
 
     def _build_dataloaders(
         self,
@@ -103,9 +159,6 @@ class Cascade512Trainer:
         """
         Construct train and validation dataloaders from the precomputed indices.
         """
-        # -------------------------------
-        # Dataset
-        # -------------------------------
         train_loader = DataLoader(
             PrecomputedCascadeDataset(self.train_index),
             batch_size=self.cfg.train_batch_size,
@@ -130,21 +183,16 @@ class Cascade512Trainer:
         """
         Construct model components used by the trainer.
         """
-        # -------------------------------
-        # Model
-        # -------------------------------
         adapter_kwargs = self.cfg.adapter_kwargs or {}
         unet_kwargs = self.cfg.unet_kwargs or {}
 
         adapter = LatentAdapter(**adapter_kwargs)  # type: ignore[arg-type]
         unet512 = UNet512(**unet_kwargs)
 
-        vae: AutoencoderKL | None = None
-        if self.cfg.enable_epoch_visualizations:
-            vae = AutoencoderKL.from_pretrained(
-                self.cfg.ae_pretrained,
-                subfolder="vae",
-            ).to(self.device)
+        vae: AutoencoderKL | None = AutoencoderKL.from_pretrained(
+            self.cfg.ae_pretrained,
+            subfolder="vae",
+        ).to(self.device)
 
         return adapter, unet512, vae
 
@@ -152,9 +200,6 @@ class Cascade512Trainer:
         """
         Construct the optimizer over both trainable model components.
         """
-        # -------------------------------
-        # Optimizer
-        # -------------------------------
         return torch.optim.AdamW(
             list(self.adapter.parameters()) + list(self.unet512.parameters()),
             lr=self.cfg.lr,
@@ -166,9 +211,6 @@ class Cascade512Trainer:
         """
         Construct the diffusion noise scheduler used during training.
         """
-        # -------------------------------
-        # Scheduler
-        # -------------------------------
         scheduler = DDPMScheduler.from_pretrained(
             self.cfg.scheduler_pretrained,
             subfolder="scheduler",
@@ -228,9 +270,6 @@ class Cascade512Trainer:
         if not self.val_index.is_file():
             raise ValueError(f"val_index must be a file: {self.val_index}")
 
-    # ==================================================================
-    # One training/validation step
-    # ==================================================================
     def _step(
         self,
         batch: tuple[torch.Tensor, torch.Tensor],
@@ -281,36 +320,74 @@ class Cascade512Trainer:
 
         return loss
 
-    # ==================================================================
-    # Validation loop
-    # ==================================================================
     @torch.no_grad()
-    def validate(self) -> float:
+    def validate(
+        self,
+        *,
+        verbose: bool | None = None,
+    ) -> float:
         """
         Run the validation loop and return average validation loss.
+
+        Args:
+            verbose: Whether to show validation progress.
+
+        Returns:
+            Average validation loss.
         """
+        if verbose is None:
+            verbose = self.verbose
+
         self.unet512.eval()
         self.adapter.eval()
 
         total_loss = 0.0
         num_batches = 0
 
-        for batch in tqdm(self.val_loader, desc="Validating"):
+        for batch in tqdm(
+            self.val_loader,
+            desc="Validating",
+            disable=not verbose,
+        ):
             loss = self._step(batch, train=False)
             total_loss += loss.item()
             num_batches += 1
 
-        return total_loss / max(1, num_batches)
+        val_loss = total_loss / max(1, num_batches)
 
-    def _train_one_epoch(self, epoch_idx: int) -> float:
+        if verbose:
+            self.accelerator.print(f"Validation loss: {val_loss:.4f}")
+
+        return val_loss
+
+    def _train_one_epoch(
+        self,
+        epoch_idx: int,
+        *,
+        verbose: bool | None = None,
+    ) -> float:
         """
         Run one full training epoch and return the average training loss.
+
+        Args:
+            epoch_idx: Zero-based epoch index.
+            verbose: Whether to show training progress.
+
+        Returns:
+            Average training loss for the epoch.
         """
+        if verbose is None:
+            verbose = self.verbose
+
         self.unet512.train()
         self.adapter.train()
 
         losses: list[float] = []
-        prog = tqdm(self.train_loader, desc=f"Epoch {epoch_idx} [Train]")
+        prog = tqdm(
+            self.train_loader,
+            desc=f"Epoch {epoch_idx + 1}/{self.cfg.epochs} [Train]",
+            disable=not verbose,
+        )
 
         for batch in prog:
             with self.accelerator.accumulate(self.unet512):
@@ -326,7 +403,9 @@ class Cascade512Trainer:
                     self.global_step += 1
 
             losses.append(loss.item())
-            prog.set_postfix(loss=np.mean(losses))
+
+            if verbose:
+                prog.set_postfix(loss=float(np.mean(losses)))
 
         train_loss = float(np.mean(losses))
         self.loss_history.append(train_loss)
@@ -346,48 +425,96 @@ class Cascade512Trainer:
 
         return PixelDiffusionArtifact(
             adapter_state_dict=unwrapped_adapter.state_dict(),
-            unet512_state_dict=unwrapped_unet512.state_dict(),
+            unet_state_dict=unwrapped_unet512.state_dict(),
             adapter_kwargs=self.cfg.adapter_kwargs or {},
             unet_kwargs=self.cfg.unet_kwargs or {},
+            scheduler_pretrained=self.cfg.scheduler_pretrained,
+            scheduler_num_inference_steps=self.cfg.scheduler_num_inference_steps,
             train_index=str(self.train_index),
             val_index=str(self.val_index),
             bs=self.cfg.train_batch_size,
             lr=self.cfg.lr,
-            ae_pretrained=self.cfg.ae_pretrained,
-            enable_epoch_visualizations=self.cfg.enable_epoch_visualizations,
             optimizer_betas=self.cfg.optimizer_betas,
             optimizer_weight_decay=self.cfg.optimizer_weight_decay,
             optimizer_state_dict=self.optimizer.state_dict(),
-            epoch=best_epoch,
-            global_step=best_global_step,
+            best_epoch=best_epoch,
+            best_global_step=best_global_step,
         )
 
-    # ==================================================================
-    # Main Training Loop
-    # ==================================================================
-    def train(self) -> PixelDiffusionArtifact:
+    def train(
+        self,
+        enable_epoch_visualizations: bool = False,
+        epoch_visualization_max_batches: int = 2,
+        enable_composition_eval: bool = False,
+        chart_left_title: str = "Original",
+        chart_right_title: str = "Predicted",
+        *,
+        verbose: bool | None = None,
+    ) -> PixelDiffusionArtifact:
         """
         Run the full training loop with validation, early stopping,
         optional qualitative evaluation, checkpoint restore, and
         final artifact creation.
+
+        Args:
+            enable_epoch_visualizations: Whether to run qualitative epoch
+                visualizations after each validation pass.
+            epoch_visualization_max_batches: Maximum number of batches to use
+                during epoch visualization.
+            enable_composition_eval: Whether to run composition evaluation after
+                each validation pass.
+            chart_left_title: Left chart title used in composition evaluation.
+            chart_right_title: Right chart title used in composition evaluation.
+            verbose: Whether to print training progress and show tqdm bars.
+
+        Returns:
+            Final pixel diffusion artifact restored from the best checkpoint.
         """
+        if verbose is None:
+            verbose = self.verbose
+
         best_val_loss = float("inf")
         epochs_without_improvement = 0
         best_epoch = 0
         best_global_step = 0
 
-        for epoch_idx in range(self.cfg.epochs):
-            train_loss = self._train_one_epoch(epoch_idx)
-
-            val_loss = self.validate()
-            self.val_loss_history.append(val_loss)
-
+        if verbose:
             self.accelerator.print(
-                f"[Epoch {epoch_idx}] Train={train_loss:.4f}  Val={val_loss:.4f}"
+                "Starting Cascade512 training "
+                f"(device={self.device}, epochs={self.cfg.epochs}, "
+                f"train_batches={len(self.train_loader)}, "
+                f"val_batches={len(self.val_loader)})"
             )
 
-            self.evaluator.maybe_run_epoch_evaluation(epoch_idx=epoch_idx)
+        for epoch_idx in range(self.cfg.epochs):
+            train_loss = self._train_one_epoch(epoch_idx, verbose=verbose)
 
+            val_loss = self.validate(verbose=verbose)
+            self.val_loss_history.append(val_loss)
+
+            if verbose:
+                self.accelerator.print(
+                    f"[Epoch {epoch_idx + 1}/{self.cfg.epochs}] "
+                    f"Train={train_loss:.4f}  Val={val_loss:.4f}"
+                )
+
+            # Visualizations
+            if enable_epoch_visualizations:
+                self.evaluator.visualize_epoch(
+                    epoch_idx=epoch_idx,
+                    visualization_inference_steps=self.cfg.scheduler_num_inference_steps,
+                    max_batches=epoch_visualization_max_batches,
+                )
+
+            if enable_composition_eval:
+                self.evaluator.eval_composition_batch(
+                    epoch_idx=epoch_idx,
+                    visualization_inference_steps=self.cfg.scheduler_num_inference_steps,
+                    chart_left_title=chart_left_title,
+                    chart_right_title=chart_right_title,
+                )
+
+            # Improvements
             if val_loss < best_val_loss - 1e-4:
                 best_val_loss = val_loss
                 epochs_without_improvement = 0
@@ -396,21 +523,36 @@ class Cascade512Trainer:
 
                 self.accelerator.wait_for_everyone()
                 self.accelerator.save_state("ckpt_best")
-                self.accelerator.print(
-                    f"  >> Saved best checkpoint (val={best_val_loss:.4f})"
-                )
+
+                if verbose:
+                    self.accelerator.print(
+                        f"  >> Saved best checkpoint (val={best_val_loss:.4f})"
+                    )
             else:
                 epochs_without_improvement += 1
-                self.accelerator.print(
-                    f"  >> No improvement ({epochs_without_improvement}/{self.cfg.patience})"
-                )
+
+                if verbose:
+                    self.accelerator.print(
+                        f"  >> No improvement "
+                        f"({epochs_without_improvement}/{self.cfg.patience})"
+                    )
+
                 if epochs_without_improvement >= self.cfg.patience:
-                    self.accelerator.print("Early stopping triggered.")
+                    if verbose:
+                        self.accelerator.print("Early stopping triggered.")
                     break
 
         self.accelerator.wait_for_everyone()
         self.accelerator.load_state("ckpt_best")
         self.accelerator.wait_for_everyone()
+
+        if verbose:
+            self.accelerator.print(
+                "Finished Cascade512 training "
+                f"(best_epoch={best_epoch + 1}, "
+                f"best_val_loss={best_val_loss:.4f}, "
+                f"best_global_step={best_global_step})"
+            )
 
         return self._build_artifact(
             best_epoch=best_epoch,
