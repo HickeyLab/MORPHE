@@ -1,7 +1,4 @@
-from types import MappingProxyType
-
-
-DEFAULT_CELL_TYPE_COLORS = MappingProxyType({
+DEFAULT_CELL_TYPE_COLORS = {
     "Cycling TA": "blue",
     "CD66+ Enterocyte": "red",
     "Enterocyte": "yellow",
@@ -27,4 +24,4 @@ DEFAULT_CELL_TYPE_COLORS = MappingProxyType({
     "TA": "indigo",
     "B": "lightcoral",
     "CD7+ Immune": "cyan",
-})
+}

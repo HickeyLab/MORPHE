@@ -107,6 +107,7 @@ class PixelDiffusionTrainer:
             device=self.device,
             accelerator=self.accelerator,
             vae=self.vae,
+            verbose=self.verbose,
         )
 
         if self.verbose:

@@ -245,7 +245,7 @@ class InpaintInferencer(BaseLatentInferencer):
 
         preview = (preview.clamp(-1, 1) + 1) / 2
         preview_np = preview[0].permute(1, 2, 0).detach().cpu().numpy()
-
+        
         plot_decoded_image(
             preview=preview_np,
             figsize=cfg.plot_fig_size,

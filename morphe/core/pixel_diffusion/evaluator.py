@@ -41,6 +41,7 @@ class PixelDiffusionEvaluator:
         device: torch.device,
         accelerator: Accelerator | None = None,
         vae: AutoencoderKL | None = None,
+        verbose: bool = False,
     ) -> None:
         """
         Initialize evaluator runtime.
@@ -54,6 +55,7 @@ class PixelDiffusionEvaluator:
             device: Runtime device.
             accelerator: Optional accelerator used for logging/unwrap behavior.
             vae: Optional autoencoder used for composition evaluation.
+            verbose: Whether to print verbose output.
         """
         self.adapter = adapter
         self.unet512 = unet512
@@ -63,6 +65,7 @@ class PixelDiffusionEvaluator:
         self.device = device
         self.accelerator = accelerator
         self.vae = vae
+        self.verbose = verbose
 
         self.vis_dir = Path(self.cfg.vis_dir)
         self.vis_dir.mkdir(parents=True, exist_ok=True)
@@ -215,7 +218,8 @@ class PixelDiffusionEvaluator:
             final_grid = torch.cat(grids, dim=1) if len(grids) > 1 else grids[0]
             out_path = self.vis_dir / f"epoch_{epoch_idx:03d}.png"
             vutils.save_image(final_grid, out_path)
-            self._print(f"[Visualize] Saved {out_path}")
+            if self.verbose:
+                self._print(f"[Visualize] Saved {out_path}")
 
     # Composition Evaluation
     @torch.no_grad()
@@ -287,4 +291,5 @@ class PixelDiffusionEvaluator:
                 right_title=chart_right_title,
                 out_path=out_path,
             )
-            self._print(f"[CompEval] Saved {out_path}")
+            if self.verbose:
+                self._print(f"[CompEval] Saved {out_path}")

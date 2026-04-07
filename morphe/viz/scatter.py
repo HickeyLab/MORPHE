@@ -12,11 +12,10 @@ def show_cell_region_scatterplot(
     x: str = "x",
     y: str = "y",
     cell_type_col: str = "Cell Type",
-    palette: dict[str, str] | None = None,
+    palette: dict[str, str] = DEFAULT_CELL_TYPE_COLORS,
     figsize: tuple[float, float] = (10, 10),
     alpha: float = 0.5,
     s: float = 6,
-    show: bool = True,
 ) -> Axes:   
     # Validate region name
     region_df = df.groupby("unique_region").get_group(region_name)
@@ -26,9 +25,6 @@ def show_cell_region_scatterplot(
     # Validate cell type colors
     if palette is not None and not isinstance(palette, dict):
         raise TypeError("palette must be a dict mapping between cell type and color.")
-    
-    # Determine cell type colors
-    palette = DEFAULT_CELL_TYPE_COLORS if palette is None else palette
 
     # Plot figure
     fig, ax = plt.subplots(figsize=figsize)
@@ -48,9 +44,7 @@ def show_cell_region_scatterplot(
     ax.set_xlabel(x)
     ax.set_ylabel(y)
     ax.legend(title=cell_type_col, prop={"size": 6})
-
-    # Allow user to determine whether to show the figure
-    if show:
-        plt.show()
+    
+    plt.show()
 
     return ax
