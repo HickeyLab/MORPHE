@@ -24,5 +24,6 @@ __all__ = [
     "OutpaintPrecomputeTask",
     "ThreeDimImputationPrecomputeTask",
     "PixelDatasetPrecomputer",
+    "PixelDiffusionTrainerConfig",
     "PixelDiffusionTrainer",
 ]
