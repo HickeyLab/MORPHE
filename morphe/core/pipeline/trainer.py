@@ -21,12 +21,12 @@ from ..latent_diffusion.train.base import LatentTrainTask
 from ..latent_diffusion.train.config import LatentTrainerConfig
 from ..latent_diffusion.train.trainer import LatentDiffusionTrainer
 from ..pixel_diffusion.artifact import PixelDiffusionArtifact
-from ..pixel_diffusion.config import PixelDiffusionTrainer
+from ..pixel_diffusion.config import PixelDiffusionTrainerConfig
 from ..pixel_diffusion.precompute.base import PixelPrecomputeTask
 from ..pixel_diffusion.precompute.pixel_dataset_precomputer import (
     PixelDatasetPrecomputer,
 )
-from ..pixel_diffusion.trainer import Cascade512Trainer
+from ..pixel_diffusion.trainer import PixelDiffusionTrainer
 from ..preprocessor.config import PreProcessConfig
 from ..preprocessor.preprocess import PreProcessor
 from ..registry import (
@@ -95,7 +95,7 @@ class MorpheTrainer:
         latent_diffusion_trainer_config: LatentTrainerConfig | None = None,
         latent_training_task: LatentTrainTask | None = None,
         pixel_diffusion_precomputer_task: PixelPrecomputeTask | None = None,
-        pixel_diffusion_trainer_config: PixelDiffusionTrainer | None = None,
+        pixel_diffusion_trainer_config: PixelDiffusionTrainerConfig | None = None,
         autoencoder_artifact: AutoencoderArtifact | None = None,
         gcnn_artifact: GCNNArtifact | None = None,
         latent_diffusion_artifact: LatentDiffusionArtifact | None = None,
@@ -248,10 +248,10 @@ class MorpheTrainer:
             if verbose:
                 print("[MorpheTrainer] Training pixel diffusion component.")
 
-            pixel_diffusion_trainer = Cascade512Trainer(
+            pixel_diffusion_trainer = PixelDiffusionTrainer(
                 train_index=Path(train_index),
                 val_index=Path(val_index),
-                cfg=pixel_diffusion_trainer_config or PixelDiffusionTrainer(),
+                cfg=pixel_diffusion_trainer_config or PixelDiffusionTrainerConfig(),
                 device=resolved_device,
                 seed=seed,
                 verbose=verbose,
