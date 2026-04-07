@@ -1,7 +1,7 @@
 import pandas as pd
 
-from core.morphe.inferencer import MorpheInferencer
-from core.morphe.trainer import MorpheTrainer
+from core.pipeline.inferencer import MorpheInferencer
+from core.pipeline.trainer import MorpheTrainer
 from constants import InferenceMode
 
 

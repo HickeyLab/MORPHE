@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 
-from src.disco.core.gcnn import train_gcnn, GCNNInferencer, GCNNArtifact
+from morphe.disco.core.gcnn import train_gcnn, GCNNInferencer, GCNNArtifact
 
 
 def build_fake_dataset(

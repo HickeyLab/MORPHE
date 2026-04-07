@@ -10,9 +10,8 @@ from core.autoencoder.inferencer import AutoencoderInferencer
 from core.latent_diffusion.inference.base import BaseLatentInferencer
 from core.latent_diffusion.inference.gapfill import GapfillInferencer
 from core.latent_diffusion.inference.inpaint import InpaintInferencer
-from core.latent_diffusion.inference.registry import _LATENT_INFERENCER_REGISTRY
 from core.latent_diffusion.inference.three_dim import ThreeDimImputationInferencer
-from core.morphe.artifact import MorpheArtifact
+from core.pipeline.artifact import MorpheArtifact
 from core.gcnn.artifact import GCNNArtifact
 from core.gcnn.inferencer import GCNNInferencer
 from core.latent_diffusion.artifact import LatentDiffusionArtifact
@@ -20,6 +19,7 @@ from core.pixel_diffusion.artifact import PixelDiffusionArtifact
 from core.pixel_diffusion.inferencer import PixelDiffusionInferencer
 from core.preprocessor.config import PreProcessConfig
 from core.preprocessor.preprocess import PreProcessor
+from core.registry import LATENT_INFERENCER_REGISTRY
 from utils import resolve_device, resolve_dtype
 
 
@@ -141,7 +141,7 @@ class MorpheInferencer:
             dtype=resolved_dtype,
         )
 
-        inference_cls = _LATENT_INFERENCER_REGISTRY.get(
+        inference_cls = LATENT_INFERENCER_REGISTRY.get(
             artifact.latent_diffusion_artifact.inference_mode
         )
         if not inference_cls:

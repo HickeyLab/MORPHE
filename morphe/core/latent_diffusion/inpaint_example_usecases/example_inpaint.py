@@ -2,8 +2,8 @@ import torch
 from pathlib import Path
 
 from disco.core.latent_diffusion.train.trainer import DiffusionTrainer
-from src.disco.core.latent_diffusion.artifact import LatentDiffusionArtifact
-from src.disco.core.latent_diffusion.strategy.arbitrary_inpainting import ArbitraryInpainting
+from morphe.disco.core.latent_diffusion.artifact import LatentDiffusionArtifact
+from morphe.disco.core.latent_diffusion.strategy.arbitrary_inpainting import ArbitraryInpainting
 from disco.core.latent_diffusion.infer.inpaint import ArbitraryInpaintingInferer
 
 

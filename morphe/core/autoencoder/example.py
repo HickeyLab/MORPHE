@@ -3,7 +3,7 @@ import pandas as pd
 import torch
 
 from disco.core.autoencoder.trainer import train_autoencoder
-from src.disco.core.autoencoder.artifact import AutoencoderArtifact
+from morphe.disco.core.autoencoder.artifact import AutoencoderArtifact
 from disco.core.autoencoder.inferencer import AutoencoderRGBInferencer
 
 def build_fake_dataset(
