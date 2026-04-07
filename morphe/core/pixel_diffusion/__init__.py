@@ -1,28 +1,28 @@
 """Public API for the pixel diffusion module."""
 
 from .artifact import PixelDiffusionArtifact
-from .config import PixelDiffusionTrainer
+from .config import PixelDiffusionTrainerConfig
 from .dataset import PrecomputedCascadeDataset
-from .evaluator import Cascade512Evaluator
+from .evaluator import PixelDiffusionEvaluator
 from .inferencer import PixelDiffusionInferencer
 from .precompute.base import PixelPrecomputeTask
 from .precompute.inpaint import InpaintPrecomputeTask
 from .precompute.outpaint import OutpaintPrecomputeTask
 from .precompute.pixel_dataset_precomputer import PixelDatasetPrecomputer
 from .precompute.three_dim import ThreeDimImputationPrecomputeTask
-from .trainer import Cascade512Trainer
+from .trainer import PixelDiffusionTrainer
 
 
 __all__ = [
     "PixelDiffusionArtifact",
-    "PixelDiffusionTrainer",
+    "PixelDiffusionTrainerConfig",
     "PrecomputedCascadeDataset",
-    "Cascade512Evaluator",
+    "PixelDiffusionEvaluator",
     "PixelDiffusionInferencer",
     "PixelPrecomputeTask",
     "InpaintPrecomputeTask",
     "OutpaintPrecomputeTask",
     "ThreeDimImputationPrecomputeTask",
     "PixelDatasetPrecomputer",
-    "Cascade512Trainer",
+    "PixelDiffusionTrainer",
 ]

@@ -1,5 +1,3 @@
-from enum import StrEnum
-
 from ..constants import InferenceMode
 from .latent_diffusion.inference.base import BaseLatentInferencer
 from .latent_diffusion.inference.gapfill import GapfillInferencer
