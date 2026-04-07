@@ -13,7 +13,7 @@ from torch.utils.data import Dataset
 
 from ....constants import InferenceMode
 from ..architecture import LatentArchitectureSpec
-from .train_config import LatentTrainerConfig
+from .config import LatentTrainerConfig
 
 
 class LatentTrainTask(ABC):

@@ -8,17 +8,72 @@ from typing import Any
 @dataclass(frozen=True, slots=True)
 class LatentTrainerConfig:
     """
-    Configuration for latent diffusion training.
+    Configuration for training the latent diffusion model.
 
-    This config centralizes optimization, checkpointing, architecture, and
-    optional learning-rate decay behavior for the latent diffusion trainer.
+    This config controls:
+    - optimization and training loop behavior
+    - checkpointing and output management
+    - pretrained backbone initialization
+    - optional encoder construction for conditioning
+
+    Learning-rate decay:
+        decay_enabled: Whether to enable learning-rate decay.
+        patience: Number of epochs with no improvement before triggering decay.
+        lr_decay_every: Frequency (in epochs) at which to apply LR decay.
+        lr_decay_factor: Multiplicative factor applied to the learning rate.
+
+    Checkpointing / output:
+        save_dir: Directory where checkpoints and artifacts are saved.
+        save_best_only: Whether to keep only the best checkpoint based on validation loss.
+
+    Pretrained backbone:
+        unet_pretrained_path: Path or HuggingFace identifier for the UNet model.
+        ae_pretrained_path: Path or HuggingFace identifier for the VAE (autoencoder).
+        scheduler_pretrained_path: Path or identifier for the diffusion scheduler.
+
+    Optimization / training loop:
+        lr: Learning rate for optimizer.
+        mixed_precision: Precision mode ("fp16", "bf16", or "no").
+        grad_clip: Maximum gradient norm for clipping.
+        batch_size: Training batch size.
+        val_batch_size: Validation batch size.
+        epochs: Number of training epochs.
+
+    Conditioning encoders (optional):
+        cond_encoder_kwargs: Keyword arguments for building the conditioning encoder.
+        coord_encoder_kwargs: Keyword arguments for coordinate encoder (used in spatial tasks).
+        bbox_encoder_kwargs: Keyword arguments for bounding-box encoder (used in gapfill/outpaint).
 
     Notes:
-        - ``supports_decay`` controls whether this training setup is allowed
-          to use LR decay at all.
-        - ``decay_enabled`` controls whether LR decay is actually turned on.
-        - When decay is enabled, all required decay hyperparameters must be
-          provided and valid.
+        - The actual encoder types (cond, coord, bbox) are determined by the
+          selected training task (e.g., inpaint, gapfill, 3D imputation).
+        - Pretrained paths are used to initialize diffusion components via
+          `from_pretrained(...)` when available.
+        - Mixed precision is handled via Accelerate during training.
+
+        Learning-rate decay behavior:
+        - If `decay_enabled=True`, all decay parameters (`patience`,
+          `lr_decay_every`, `lr_decay_factor`) must be provided.
+        - If `decay_enabled=False`, decay parameters are ignored.
+
+        Task-specific behavior:
+        - Not all inference modes use all encoders:
+            - Inpaint: cond encoder only
+            - Gapfill / Outpaint: cond + bbox (+ possibly coord)
+            - 3D imputation: specialized conditioning (e.g., cond3d)
+
+    Typical usage:
+        cfg = LatentTrainerConfig(
+            lr=2e-5,
+            batch_size=8,
+            epochs=20,
+            mixed_precision="fp16",
+        )
+
+    Performance tips:
+        - If training is unstable, reduce `lr` or increase `grad_clip`.
+        - If running out of memory, reduce `batch_size` or disable mixed precision fallback.
+        - If underfitting, increase `epochs` or adjust conditioning encoder capacity.
     """
     # Learning-rate decay
     decay_enabled: bool = False

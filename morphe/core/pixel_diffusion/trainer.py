@@ -11,15 +11,16 @@ from diffusers import AutoencoderKL, DDPMScheduler  # type: ignore
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
+
 from .dataset import PrecomputedCascadeDataset
+from .config import PixelDiffusionTrainerConfig
 from .artifact import PixelDiffusionArtifact
-from .config import Cascade512TrainerConfig
-from .evaluator import Cascade512Evaluator
+from .evaluator import PixelDiffusionEvaluator
 from .models import LatentAdapter, UNet512
 from ...utils import get_config_attr, resolve_device, set_config_attr
 
 
-class Cascade512Trainer:
+class PixelDiffusionTrainer:
     """
     Stage-2 (512×512) cascade diffusion trainer.
 
@@ -36,7 +37,7 @@ class Cascade512Trainer:
         *,
         train_index: str | Path,
         val_index: str | Path,
-        cfg: Cascade512TrainerConfig,
+        cfg: PixelDiffusionTrainerConfig,
         device: torch.device | str | None = None,
         seed: int | None = None,
         verbose: bool = False,
@@ -97,7 +98,7 @@ class Cascade512Trainer:
         self._prepare_runtime()
 
         # Evaluator
-        self.evaluator = Cascade512Evaluator(
+        self.evaluator = PixelDiffusionEvaluator(
             adapter=self.adapter,
             unet512=self.unet512,
             noise_scheduler=self.noise_scheduler,
@@ -192,7 +193,7 @@ class Cascade512Trainer:
         vae: AutoencoderKL | None = AutoencoderKL.from_pretrained(
             self.cfg.ae_pretrained,
             subfolder="vae",
-        ).to(self.device)
+        ).to(self.device) # type: ignore
 
         return adapter, unet512, vae
 

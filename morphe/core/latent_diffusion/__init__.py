@@ -19,7 +19,7 @@ from .train.base import LatentTrainTask
 from .train.inpaint import InpaintTrainTask
 from .train.outpaint import OutpaintTrainTask
 from .train.three_dim import ThreeDimImputationTrainTask
-from .train.train_config import LatentTrainerConfig
+from .train.config import LatentTrainerConfig
 from .train.trainer import LatentDiffusionTrainer, LatentTrainResult
 
 

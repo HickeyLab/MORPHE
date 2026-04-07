@@ -14,7 +14,7 @@ from tqdm import tqdm
 from ..artifact import LatentDiffusionArtifact
 from ..model import BBoxEncoder, CondEncoder, CondEncoder3D, CoordEncoder
 from .base import LatentTrainTask
-from .train_config import LatentTrainerConfig
+from .config import LatentTrainerConfig
 from ...pixel_diffusion.models import UNet512
 from ....utils import resolve_device, resolve_dtype
 

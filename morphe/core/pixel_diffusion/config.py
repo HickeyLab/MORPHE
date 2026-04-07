@@ -3,7 +3,75 @@ from pathlib import Path
 
 
 @dataclass(frozen=True, slots=True)
-class Cascade512TrainerConfig:
+class PixelDiffusionTrainerConfig:
+    """
+    Configuration for training the pixel diffusion (cascade) model.
+
+    This stage learns to decode latent representations into full-resolution
+    RGB outputs using a UNet-based diffusion model conditioned on latents.
+
+    This config controls:
+    - optimizer and training loop behavior
+    - dataloader performance
+    - pretrained diffusion components
+    - visualization and evaluation outputs
+
+    Core optimization:
+        lr: Learning rate for the optimizer.
+        optimizer_betas: Beta coefficients for Adam optimizer.
+        optimizer_weight_decay: L2 weight decay applied during optimization.
+
+    Runtime:
+        mixed_precision: Precision mode used during training ("fp16", "bf16", or "no").
+
+    Data loading:
+        train_num_workers: Number of workers for training DataLoader.
+        train_batch_size: Batch size for training.
+        val_num_workers: Number of workers for validation DataLoader.
+        val_batch_size: Batch size for validation.
+
+    Model / pretrained components:
+        ae_pretrained: Path or HuggingFace identifier for the VAE used to encode latents.
+        scheduler_pretrained: Path or identifier for the diffusion scheduler.
+        scheduler_num_inference_steps: Number of denoising steps used during sampling.
+        adapter_kwargs: Optional kwargs for constructing the latent adapter module.
+        unet_kwargs: Optional kwargs for constructing the UNet model.
+
+    Output / logging:
+        vis_dir: Directory where training visualizations are saved.
+        comp_eval_save_dir: Directory where composition evaluation outputs are saved.
+
+    Training loop:
+        epochs: Number of training epochs.
+        patience: Early stopping patience based on validation performance.
+
+    Notes:
+        - Training operates on precomputed latent datasets (not raw images).
+        - The model learns to map latent inputs → RGB outputs via diffusion.
+        - The adapter transforms latent space into a form compatible with the UNet.
+        - The scheduler controls the diffusion noise schedule and sampling process.
+        - Visualization outputs typically include intermediate reconstructions and
+          qualitative comparisons between original and predicted images.
+
+    Expected inputs:
+        - Precomputed dataset containing:
+            - latent tensors (e.g., shape [4, 64, 64])
+            - target images (e.g., shape [3, 512, 512])
+
+    Performance tips:
+        - If training is slow, reduce `scheduler_num_inference_steps` or batch size.
+        - If running out of memory, lower `train_batch_size` or disable mixed precision fallback.
+        - If outputs are blurry, increase epochs or adjust UNet capacity via `unet_kwargs`.
+        - If conditioning is weak, tune `adapter_kwargs`.
+
+    Typical usage:
+        cfg = PixelDiffusionTrainerConfig(
+            lr=1e-5,
+            train_batch_size=4,
+            epochs=30,
+            scheduler_num_inference_steps=200,
+        )
+    """
     # -------------------------------
     # Core optimization
     # -------------------------------

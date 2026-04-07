@@ -18,10 +18,10 @@ from ..gcnn.inferencer import GCNNInferencer
 from ..gcnn.trainer import GCNNTrainer
 from ..latent_diffusion.artifact import LatentDiffusionArtifact
 from ..latent_diffusion.train.base import LatentTrainTask
-from ..latent_diffusion.train.train_config import LatentTrainerConfig
+from ..latent_diffusion.train.config import LatentTrainerConfig
 from ..latent_diffusion.train.trainer import LatentDiffusionTrainer
 from ..pixel_diffusion.artifact import PixelDiffusionArtifact
-from ..pixel_diffusion.config import Cascade512TrainerConfig
+from ..pixel_diffusion.config import PixelDiffusionTrainer
 from ..pixel_diffusion.precompute.base import PixelPrecomputeTask
 from ..pixel_diffusion.precompute.pixel_dataset_precomputer import (
     PixelDatasetPrecomputer,
@@ -95,7 +95,7 @@ class MorpheTrainer:
         latent_diffusion_trainer_config: LatentTrainerConfig | None = None,
         latent_training_task: LatentTrainTask | None = None,
         pixel_diffusion_precomputer_task: PixelPrecomputeTask | None = None,
-        pixel_diffusion_trainer_config: Cascade512TrainerConfig | None = None,
+        pixel_diffusion_trainer_config: PixelDiffusionTrainer | None = None,
         autoencoder_artifact: AutoencoderArtifact | None = None,
         gcnn_artifact: GCNNArtifact | None = None,
         latent_diffusion_artifact: LatentDiffusionArtifact | None = None,
@@ -216,9 +216,7 @@ class MorpheTrainer:
             print("[MorpheTrainer] Using provided latent diffusion artifact.")
 
         if pixel_diffusion_artifact is None:
-            expected_precompute_task_cls = PRECOMPUTE_TASK_REGISTRY[
-                inference_mode
-            ]
+            expected_precompute_task_cls = PRECOMPUTE_TASK_REGISTRY[inference_mode]
             resolved_precompute_task = MorpheTrainer._resolve_task(
                 provided=pixel_diffusion_precomputer_task,
                 expected_cls=expected_precompute_task_cls,
@@ -253,7 +251,7 @@ class MorpheTrainer:
             pixel_diffusion_trainer = Cascade512Trainer(
                 train_index=Path(train_index),
                 val_index=Path(val_index),
-                cfg=pixel_diffusion_trainer_config or Cascade512TrainerConfig(),
+                cfg=pixel_diffusion_trainer_config or PixelDiffusionTrainer(),
                 device=resolved_device,
                 seed=seed,
                 verbose=verbose,

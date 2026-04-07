@@ -12,7 +12,7 @@ from ....constants import InferenceMode
 from ..architecture import LatentArchitectureSpec
 from ..data.builders import build_three_dim_dataset
 from .base import LatentTrainTask
-from .train_config import LatentTrainerConfig
+from .config import LatentTrainerConfig
 from ....utils import get_config_attr
 if TYPE_CHECKING:
     from .trainer import LatentDiffusionTrainer

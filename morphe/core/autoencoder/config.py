@@ -4,11 +4,60 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
-import torch
-
-
 @dataclass(frozen=True, slots=True)
 class AutoencoderTrainerConfig:
+    """
+    Configuration for training the autoencoder on probability-vector inputs.
+
+    This config controls:
+    - how input features are selected from the dataframe
+    - the architecture of the autoencoder
+    - training/validation splitting and batching
+    - optimization and loss weighting
+
+    Data / dataset:
+        save_dir: Directory where model checkpoints and the best artifact are saved.
+        save_best_only: Whether to only keep the best model (based on validation loss).
+        val_ratio: Fraction of data reserved for validation (0–1).
+        batch_size: Number of samples per training batch.
+        num_workers: Number of workers for DataLoader parallelism.
+        input_cols: Columns used as input features. If None, columns prefixed with
+            "prob_" are automatically selected.
+
+    Model architecture:
+        bottleneck_dim: Dimensionality of the latent space (z).
+        hidden_dim: Size of hidden layers in the encoder/decoder.
+
+    Optimization:
+        num_epochs: Number of training epochs.
+        lr: Learning rate for the optimizer.
+        alpha: Weight applied to the contrastive (clustering) loss component.
+
+    Expected dataframe schema:
+        The input dataframe must contain:
+        - probability-like columns (either explicitly provided via `input_cols`
+          or inferred as columns starting with "prob_")
+        - no null values in the selected input columns
+
+    Notes:
+        - Inputs are treated as probability distributions and trained using
+          KL-divergence reconstruction loss.
+        - A contrastive loss is applied in latent space to encourage biologically
+          meaningful clustering.
+        - Smaller `bottleneck_dim` forces stronger compression but may lose detail.
+        - Larger `hidden_dim` increases model capacity and memory usage.
+        - `alpha` balances reconstruction vs. clustering:
+            - lower alpha → better reconstruction
+            - higher alpha → stronger latent structure
+
+    Typical usage:
+        cfg = AutoencoderTrainerConfig(
+            bottleneck_dim=3,
+            hidden_dim=512,
+            num_epochs=100,
+            lr=1e-4,
+        )
+    """
     save_dir: str | Path = Path("autoencoder_checkpoints")
     save_best_only: bool = True
     val_ratio: float = 0.1

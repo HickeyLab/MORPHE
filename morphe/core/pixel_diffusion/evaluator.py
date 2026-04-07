@@ -6,9 +6,9 @@ import numpy as np
 import torch
 import torchvision.utils as vutils
 from accelerate import Accelerator
-from diffusers import AutoencoderKL, DDPMScheduler # type: ignore
+from diffusers import AutoencoderKL, DDPMScheduler  # type: ignore
 
-from .config import Cascade512TrainerConfig
+from .config import PixelDiffusionTrainerConfig
 from .models import LatentAdapter, UNet512
 from ...viz.cell_diagram_chart import save_side_by_side_barplot
 
@@ -16,7 +16,7 @@ from ...viz.cell_diagram_chart import save_side_by_side_barplot
 type CascadeBatch = tuple[torch.Tensor, torch.Tensor]
 
 
-class Cascade512Evaluator:
+class PixelDiffusionEvaluator:
     """
     Qualitative / analysis evaluator for stage-2 (512x512) cascade diffusion.
 
@@ -37,7 +37,7 @@ class Cascade512Evaluator:
         unet512: UNet512,
         noise_scheduler: DDPMScheduler,
         val_loader,
-        cfg: Cascade512TrainerConfig,
+        cfg: PixelDiffusionTrainerConfig,
         device: torch.device,
         accelerator: Accelerator | None = None,
         vae: AutoencoderKL | None = None,
@@ -123,13 +123,16 @@ class Cascade512Evaluator:
         )
 
         # Start from pure noise
-        x = torch.randn(
-            batch_size,
-            3,
-            target_shape[2],
-            target_shape[3],
-            device=self.device,
-        ) * self.noise_scheduler.init_noise_sigma
+        x = (
+            torch.randn(
+                batch_size,
+                3,
+                target_shape[2],
+                target_shape[3],
+                device=self.device,
+            )
+            * self.noise_scheduler.init_noise_sigma
+        )
 
         for timestep in self.noise_scheduler.timesteps:
             timestep_batch = torch.full(
@@ -261,8 +264,12 @@ class Cascade512Evaluator:
             type_pred = self._infer_cell_map(pred_vis[i], ae)
             type_orig = self._infer_cell_map(target_vis[i], ae)
 
-            dist_pred = self._compute_type_distribution(type_pred.squeeze().cpu().numpy())
-            dist_orig = self._compute_type_distribution(type_orig.squeeze().cpu().numpy())
+            dist_pred = self._compute_type_distribution(
+                type_pred.squeeze().cpu().numpy()
+            )
+            dist_orig = self._compute_type_distribution(
+                type_orig.squeeze().cpu().numpy()
+            )
 
             predicted_fractions.append(dist_pred)
             original_fractions.append(dist_orig)

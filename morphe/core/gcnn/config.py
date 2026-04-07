@@ -2,9 +2,55 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-
 @dataclass(frozen=True, slots=True)
 class GCNNTrainerConfig:
+    """
+    Configuration for training the graph convolutional classifier (GCNN).
+
+    This config controls:
+    - how the input dataframe is interpreted as a graph
+    - the architecture of the GCN model
+    - optimization and training behavior
+
+    Dataset / graph construction:
+        label_col: Name of the column containing class labels.
+        region_col: Column identifying distinct regions (each becomes a graph).
+        pos_cols: Tuple of (x, y) coordinate columns used to build spatial edges.
+        k_neighbors: Number of nearest neighbors used to construct graph edges.
+        batch_size: Number of graphs per batch during training.
+
+    Model hyperparameters:
+        hidden_channels: Dimensionality of hidden GCN layers.
+        dropout: Dropout probability applied in the model.
+        alpha: Teleport probability / residual weighting factor in the GCN.
+        K: Number of propagation steps (graph convolution depth).
+
+    Optimization:
+        lr: Learning rate for the optimizer.
+        weight_decay: L2 regularization strength.
+        epochs: Number of full passes over the dataset.
+
+    Expected dataframe schema:
+        The input dataframe must contain:
+        - all feature columns passed to the trainer
+        - label_col
+        - region_col
+        - both columns in pos_cols
+
+    Notes:
+        - Each unique value in `region_col` defines a separate graph.
+        - Edges are constructed using k-nearest neighbors in (x, y) space.
+        - Larger `k_neighbors` increases connectivity but also compute cost.
+        - Increasing `hidden_channels` improves capacity but increases memory usage.
+        - `K` controls how far information propagates across the graph.
+
+    Typical usage:
+        cfg = GCNNTrainerConfig(
+            hidden_channels=512,
+            k_neighbors=15,
+            epochs=50,
+        )
+    """
     # dataset/schema
     label_col: str = "Cell Type"
     region_col: str = "unique_region"

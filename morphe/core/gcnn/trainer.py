@@ -261,7 +261,6 @@ class GCNNTrainer:
 
         return GCNNArtifact(
             model_state_dict={key: value.cpu() for key, value in model.state_dict().items()},
-            in_channels=len(self.feature_cols),
             hidden_channels=self.cfg.hidden_channels,
             num_classes=num_classes,
             dropout=float(self.cfg.dropout),

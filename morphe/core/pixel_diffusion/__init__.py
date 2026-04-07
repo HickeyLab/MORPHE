@@ -1,7 +1,7 @@
 """Public API for the pixel diffusion module."""
 
 from .artifact import PixelDiffusionArtifact
-from .config import Cascade512TrainerConfig
+from .config import PixelDiffusionTrainer
 from .dataset import PrecomputedCascadeDataset
 from .evaluator import Cascade512Evaluator
 from .inferencer import PixelDiffusionInferencer
@@ -15,7 +15,7 @@ from .trainer import Cascade512Trainer
 
 __all__ = [
     "PixelDiffusionArtifact",
-    "Cascade512TrainerConfig",
+    "PixelDiffusionTrainer",
     "PrecomputedCascadeDataset",
     "Cascade512Evaluator",
     "PixelDiffusionInferencer",
