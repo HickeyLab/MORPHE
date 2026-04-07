@@ -11,7 +11,7 @@ from .core.latent_diffusion import (
     ThreeDimImputationRunConfig,
     ThreeDimImputationWeightSweepConfig,
 )
-from .core.pixel_diffusion import PixelDiffusionTrainer
+from .core.pixel_diffusion import PixelDiffusionTrainerConfig
 from .core.preprocessor import PreProcessConfig
 
 __all__ = [
@@ -25,5 +25,5 @@ __all__ = [
     "GapfillRunConfig",
     "ThreeDimImputationRunConfig",
     "ThreeDimImputationWeightSweepConfig",
-    "PixelDiffusionTrainer",
+    "PixelDiffusionTrainerConfig",
 ]
