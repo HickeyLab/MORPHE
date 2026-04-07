@@ -112,7 +112,7 @@ class PixelDiffusionTrainer:
 
         if self.verbose:
             self.accelerator.print(
-                "Initialized Cascade512Trainer "
+                "Initialized PixelDiffusionTrainer "
                 f"(device={self.device}, seed={self.seed}, "
                 f"train_batches={len(self.train_loader)}, "
                 f"val_batches={len(self.val_loader)})"

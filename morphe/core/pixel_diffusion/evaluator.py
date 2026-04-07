@@ -26,7 +26,7 @@ class PixelDiffusionEvaluator:
     - run composition evaluation using an auxiliary autoencoder
     - save side-by-side composition plots
 
-    This class is intentionally separate from Cascade512Trainer so that
+    This class is intentionally separate from PixelDiffusionTrainer so that
     training and evaluation/visualization concerns stay decoupled.
     """
 
