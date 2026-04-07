@@ -1,11 +1,16 @@
-from core.autoencoder.model import Autoencoder
-from core.autoencoder.artifact import AutoencoderArtifact
-from core.autoencoder.trainer import AutoencoderTrainer
-from core.autoencoder.inferencer import AutoencoderInferencer
+"""Public API for the autoencoder module."""
+
+from .artifact import AutoencoderArtifact
+from .config import AutoencoderTrainerConfig
+from .inferencer import AutoencoderInferencer
+from .model import Autoencoder
+from .trainer import AutoencoderTrainer
+
 
 __all__ = [
     "Autoencoder",
     "AutoencoderArtifact",
+    "AutoencoderTrainerConfig",
     "AutoencoderTrainer",
     "AutoencoderInferencer",
 ]

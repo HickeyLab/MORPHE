@@ -30,7 +30,7 @@ class LatentTrainResult:
     val_loss_history: list[float]
 
 
-class DiffusionTrainer:
+class LatentDiffusionTrainer:
     """
     Trainer for latent diffusion models.
 

@@ -19,7 +19,7 @@ from core.gcnn.trainer import GCNNTrainer
 from core.latent_diffusion.artifact import LatentDiffusionArtifact
 from core.latent_diffusion.train.base import LatentTrainStrategy
 from core.latent_diffusion.train.train_config import LatentTrainerConfig
-from core.latent_diffusion.train.trainer import DiffusionTrainer
+from core.latent_diffusion.train.trainer import LatentDiffusionTrainer
 from core.pixel_diffusion.artifact import PixelDiffusionArtifact
 from core.pixel_diffusion.config import Cascade512TrainerConfig
 from core.pixel_diffusion.precompute.base import PixelPrecomputeStrategy
@@ -196,7 +196,7 @@ class MorpheTrainer:
             if verbose:
                 print("[MorpheTrainer] Training latent diffusion component.")
 
-            latent_diffusion_trainer = DiffusionTrainer(
+            latent_diffusion_trainer = LatentDiffusionTrainer(
                 train_strategy=resolved_latent_strategy,
                 root_dir=root_dir,
                 cfg=latent_diffusion_trainer_config or LatentTrainerConfig(),

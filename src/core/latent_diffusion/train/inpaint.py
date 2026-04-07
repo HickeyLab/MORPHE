@@ -15,7 +15,7 @@ from core.latent_diffusion.train.base import LatentTrainStrategy
 from core.latent_diffusion.train.train_config import LatentTrainerConfig
 from utils import get_config_attr
 if TYPE_CHECKING:
-    from core.latent_diffusion.train.trainer import DiffusionTrainer
+    from core.latent_diffusion.train.trainer import LatentDiffusionTrainer
 
 
 @dataclass(frozen=True)
@@ -98,7 +98,7 @@ class InpaintTrainStrategy(LatentTrainStrategy):
 
     def train_step(
         self,
-        trainer: "DiffusionTrainer",
+        trainer: "LatentDiffusionTrainer",
         batch,
     ) -> torch.Tensor:
         """
@@ -183,7 +183,7 @@ class InpaintTrainStrategy(LatentTrainStrategy):
 
         return loss
 
-    def validate_step(self, trainer: "DiffusionTrainer") -> float:
+    def validate_step(self, trainer: "LatentDiffusionTrainer") -> float:
         """
         Run full validation over the validation dataset.
 

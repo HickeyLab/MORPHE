@@ -2,7 +2,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from core.latent_diffusion.train.trainer import DiffusionTrainer
+    from core.latent_diffusion.train.trainer import LatentDiffusionTrainer
 
 from abc import ABC, abstractmethod
 from pathlib import Path
@@ -42,11 +42,11 @@ class LatentTrainStrategy(ABC):
     @abstractmethod
     def train_step(
         self,
-        trainer: "DiffusionTrainer",
+        trainer: "LatentDiffusionTrainer",
         batch: Any,
     ) -> torch.Tensor:
         raise NotImplementedError
 
     @abstractmethod
-    def validate_step(self, trainer: "DiffusionTrainer") -> float:
+    def validate_step(self, trainer: "LatentDiffusionTrainer") -> float:
         raise NotImplementedError

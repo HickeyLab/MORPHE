@@ -16,7 +16,7 @@ from core.latent_diffusion.train.base import LatentTrainStrategy
 from core.latent_diffusion.train.train_config import LatentTrainerConfig
 from utils import get_config_attr
 if TYPE_CHECKING:
-    from core.latent_diffusion.train.trainer import DiffusionTrainer
+    from core.latent_diffusion.train.trainer import LatentDiffusionTrainer
 
 
 
@@ -131,7 +131,7 @@ class OutpaintTrainStrategy(LatentTrainStrategy):
         mask = torch.stack(masks).unsqueeze(1)  # (B,1,H,W)
         return mask
 
-    def train_step(self, trainer: "DiffusionTrainer", batch):
+    def train_step(self, trainer: "LatentDiffusionTrainer", batch):
         """
         Perform a single training step for outpainting.
 
@@ -210,7 +210,7 @@ class OutpaintTrainStrategy(LatentTrainStrategy):
 
         return loss
 
-    def validate_step(self, trainer: "DiffusionTrainer") -> float:
+    def validate_step(self, trainer: "LatentDiffusionTrainer") -> float:
         """
         Run validation over the entire validation dataset.
 
