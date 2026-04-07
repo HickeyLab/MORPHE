@@ -7,7 +7,7 @@ import torch
 
 from core.latent_diffusion.data.builders import build_three_dim_dataset
 from core.latent_diffusion.data.datasets import Slice3DDataset
-from core.pixel_diffusion.precompute.base import PixelPrecomputeStrategy
+from core.pixel_diffusion.precompute.base import PixelPrecomputeTask
 
 
 type ThreeDimBatch = tuple[
@@ -19,7 +19,7 @@ type ThreeDimBatch = tuple[
 ]
 
 
-class ThreeDimImputationPrecomputeStrategy(PixelPrecomputeStrategy):
+class ThreeDimImputationPrecomputeTask(PixelPrecomputeTask):
     """
     Precompute strategy for 3D imputation pixel-diffusion training data.
 

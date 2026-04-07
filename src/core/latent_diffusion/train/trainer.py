@@ -13,7 +13,7 @@ from tqdm import tqdm
 
 from core.latent_diffusion.artifact import LatentDiffusionArtifact
 from core.latent_diffusion.model import BBoxEncoder, CondEncoder, CondEncoder3D, CoordEncoder
-from core.latent_diffusion.train.base import LatentTrainStrategy
+from core.latent_diffusion.train.base import LatentTrainTask
 from core.latent_diffusion.train.train_config import LatentTrainerConfig
 from core.pixel_diffusion.models import UNet512
 from utils import resolve_device, resolve_dtype
@@ -37,21 +37,21 @@ class LatentDiffusionTrainer:
     The trainer owns runtime setup, model/component construction, data loading,
     optimizer creation, and accelerator preparation. Task-specific behavior
     such as dataset construction and architecture selection is delegated to the
-    provided ``train_strategy``.
+    provided ``train_task``.
     """
 
     def __init__(
         self,
         *,
         root_dir: Path,
-        train_strategy: LatentTrainStrategy,
+        train_task: LatentTrainTask,
         cfg: LatentTrainerConfig,
         device: torch.device | str | None = None,
         dtype: torch.dtype | None = None,
         seed: int | None = None,
     ) -> None:
         self.root_dir = Path(root_dir)
-        self.train_strategy = train_strategy
+        self.train_task = train_task
         self.cfg = cfg
         self.seed = seed
 
@@ -65,7 +65,7 @@ class LatentDiffusionTrainer:
 
         self.accelerator = Accelerator(mixed_precision=self.cfg.mixed_precision)
 
-        self.arch_spec = self.train_strategy.build_architecture_spec(cfg=self.cfg)
+        self.arch_spec = self.train_task.build_architecture_spec(cfg=self.cfg)
 
         self._build_components()
         self._build_dataloaders()
@@ -114,7 +114,7 @@ class LatentDiffusionTrainer:
         """
         Build train/validation dataloaders from the strategy-provided datasets.
         """
-        train_data, val_data = self.train_strategy.build_dataset(self.root_dir)
+        train_data, val_data = self.train_task.build_dataset(self.root_dir)
 
         pin_memory = self.device.type == "cuda"
 
@@ -122,7 +122,7 @@ class LatentDiffusionTrainer:
             train_data,
             batch_size=self.cfg.batch_size,
             shuffle=True,
-            num_workers=self.train_strategy.train_num_workers,
+            num_workers=self.train_task.train_num_workers,
             pin_memory=pin_memory,
         )
 
@@ -130,7 +130,7 @@ class LatentDiffusionTrainer:
             val_data,
             batch_size=self.cfg.val_batch_size,
             shuffle=False,
-            num_workers=self.train_strategy.val_num_workers,
+            num_workers=self.train_task.val_num_workers,
             pin_memory=pin_memory,
         )
 
@@ -227,7 +227,7 @@ class LatentDiffusionTrainer:
 
         for batch in pbar:
             with self.accelerator.accumulate(self.unet):  # type: ignore
-                loss = self.train_strategy.train_step(self, batch)
+                loss = self.train_task.train_step(self, batch)
 
                 self.accelerator.backward(loss)
 
@@ -270,8 +270,8 @@ class LatentDiffusionTrainer:
             coord_encoder_state_dict=coord_state,
             bbox_encoder_state_dict=bbox_state,
             architecture=self.arch_spec,
-            inference_mode=self.train_strategy.inference_mode,
-            img_size=getattr(self.train_strategy, "img_size", None),
+            inference_mode=self.train_task.inference_mode,
+            img_size=getattr(self.train_task, "img_size", None),
         )
 
     def _save_artifact(self, artifact: LatentDiffusionArtifact, name: str, verbose: bool) -> Path:
@@ -352,7 +352,7 @@ class LatentDiffusionTrainer:
 
         best_val = float("inf")
         patience_cnt = 0
-        patience = getattr(self.train_strategy, "patience", None)
+        patience = getattr(self.train_task, "patience", None)
 
         best_artifact: LatentDiffusionArtifact | None = None
 
@@ -365,7 +365,7 @@ class LatentDiffusionTrainer:
             train_loss = self._train_one_epoch(epoch=epoch, verbose=verbose)
             self.train_loss_history.append(train_loss)
 
-            val_loss = self.train_strategy.validate_step(trainer=self)
+            val_loss = self.train_task.validate_step(trainer=self)
             self.val_loss_history.append(val_loss)
 
             self.accelerator.print(
@@ -406,9 +406,9 @@ class LatentDiffusionTrainer:
                         )
                     break
 
-            if getattr(self.train_strategy, "decay_enabled", False):
-                every = getattr(self.train_strategy, "lr_decay_every", None)
-                factor = float(getattr(self.train_strategy, "lr_decay_factor", 0.5))
+            if getattr(self.train_task, "decay_enabled", False):
+                every = getattr(self.train_task, "lr_decay_every", None)
+                factor = float(getattr(self.train_task, "lr_decay_factor", 0.5))
                 if every is not None and every > 0 and (epoch + 1) % every == 0:
                     for group in self.optimizer.param_groups:
                         group["lr"] *= factor

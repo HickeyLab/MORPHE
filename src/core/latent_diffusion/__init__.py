@@ -15,10 +15,10 @@ from .inference.run_config import (
     ThreeDimImputationWeightSweepConfig,
 )
 from .inference.three_dim import ThreeDimImputationInferencer
-from .train.base import LatentTrainStrategy
-from .train.inpaint import InpaintTrainStrategy
-from .train.outpaint import OutpaintTrainStrategy
-from .train.three_dim import ThreeDimImputationTrainStrategy
+from .train.base import LatentTrainTask
+from .train.inpaint import InpaintTrainTask
+from .train.outpaint import OutpaintTrainTask
+from .train.three_dim import ThreeDimImputationTrainTask
 from .train.train_config import LatentTrainerConfig
 from .train.trainer import LatentDiffusionTrainer, LatentTrainResult
 
@@ -29,10 +29,10 @@ __all__ = [
     "LatentTrainerConfig",
     "LatentTrainResult",
     "LatentDiffusionTrainer",
-    "LatentTrainStrategy",
-    "InpaintTrainStrategy",
-    "OutpaintTrainStrategy",
-    "ThreeDimImputationTrainStrategy",
+    "LatentTrainTask",
+    "InpaintTrainTask",
+    "OutpaintTrainTask",
+    "ThreeDimImputationTrainTask",
     "BaseLatentInferencer",
     "InpaintInferencer",
     "OutpaintInferencer",

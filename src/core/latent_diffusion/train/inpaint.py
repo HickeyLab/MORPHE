@@ -11,7 +11,7 @@ from torch.utils.data import Dataset
 from constants import InferenceMode
 from core.latent_diffusion.architecture import LatentArchitectureSpec
 from core.latent_diffusion.data.builders import build_inpaint_dataset
-from core.latent_diffusion.train.base import LatentTrainStrategy
+from core.latent_diffusion.train.base import LatentTrainTask
 from core.latent_diffusion.train.train_config import LatentTrainerConfig
 from utils import get_config_attr
 if TYPE_CHECKING:
@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 
 
 @dataclass(frozen=True)
-class InpaintTrainStrategy(LatentTrainStrategy):
+class InpaintTrainTask(LatentTrainTask):
     """
     Training strategy for latent diffusion-based image inpainting.
 

@@ -6,13 +6,13 @@ from core.latent_diffusion.inference.gapfill import GapfillInferencer
 from core.latent_diffusion.inference.inpaint import InpaintInferencer
 from core.latent_diffusion.inference.outpaint import OutpaintInferencer
 from core.latent_diffusion.inference.three_dim import ThreeDimImputationInferencer
-from core.latent_diffusion.train.base import LatentTrainStrategy
-from core.latent_diffusion.train.inpaint import InpaintTrainStrategy
-from core.latent_diffusion.train.outpaint import OutpaintTrainStrategy
-from core.latent_diffusion.train.three_dim import ThreeDimImputationTrainStrategy
-from core.pixel_diffusion.precompute.inpaint import InpaintPrecomputeStrategy
-from core.pixel_diffusion.precompute.outpaint import OutpaintPrecomputeStrategy
-from core.pixel_diffusion.precompute.three_dim import ThreeDimImputationPrecomputeStrategy
+from core.latent_diffusion.train.base import LatentTrainTask
+from core.latent_diffusion.train.inpaint import InpaintTrainTask
+from core.latent_diffusion.train.outpaint import OutpaintTrainTask
+from core.latent_diffusion.train.three_dim import ThreeDimImputationTrainTask
+from core.pixel_diffusion.precompute.inpaint import InpaintPrecomputeTask
+from core.pixel_diffusion.precompute.outpaint import OutpaintPrecomputeTask
+from core.pixel_diffusion.precompute.three_dim import ThreeDimImputationPrecomputeTask
     
 LATENT_INFERENCER_REGISTRY: dict[InferenceMode, type[BaseLatentInferencer]] = {
     InferenceMode.GAPFILL: GapfillInferencer,
@@ -21,16 +21,16 @@ LATENT_INFERENCER_REGISTRY: dict[InferenceMode, type[BaseLatentInferencer]] = {
     InferenceMode.THREE_DIMENSIONAL_IMPUTATION: ThreeDimImputationInferencer,
 }
 
-LATENT_TRAIN_STRATEGY_REGISTRY: dict[InferenceMode, type[LatentTrainStrategy]] = {
-    InferenceMode.INPAINTING: InpaintTrainStrategy,
-    InferenceMode.GAPFILL: OutpaintTrainStrategy,
-    InferenceMode.OUTPAINTING: OutpaintTrainStrategy,
-    InferenceMode.THREE_DIMENSIONAL_IMPUTATION: ThreeDimImputationTrainStrategy,
+LATENT_TRAIN_TASK_REGISTRY: dict[InferenceMode, type[LatentTrainTask]] = {
+    InferenceMode.INPAINTING: InpaintTrainTask,
+    InferenceMode.GAPFILL: OutpaintTrainTask,
+    InferenceMode.OUTPAINTING: OutpaintTrainTask,
+    InferenceMode.THREE_DIMENSIONAL_IMPUTATION: ThreeDimImputationTrainTask,
 }
 
-PRECOMPUTE_STRATEGY_REGISTRY = {
-    InferenceMode.INPAINTING: InpaintPrecomputeStrategy,
-    InferenceMode.GAPFILL: OutpaintPrecomputeStrategy,
-    InferenceMode.OUTPAINTING: OutpaintPrecomputeStrategy,
-    InferenceMode.THREE_DIMENSIONAL_IMPUTATION: ThreeDimImputationPrecomputeStrategy,
+PRECOMPUTE_TASK_REGISTRY = {
+    InferenceMode.INPAINTING: InpaintPrecomputeTask,
+    InferenceMode.GAPFILL: OutpaintPrecomputeTask,
+    InferenceMode.OUTPAINTING: OutpaintPrecomputeTask,
+    InferenceMode.THREE_DIMENSIONAL_IMPUTATION: ThreeDimImputationPrecomputeTask,
 }

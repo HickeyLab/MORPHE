@@ -9,7 +9,7 @@ from torch.utils.data import DataLoader, Dataset
 from tqdm.auto import tqdm
 
 from core.latent_diffusion.model import VAEEncoder
-from core.pixel_diffusion.precompute.base import PixelPrecomputeStrategy
+from core.pixel_diffusion.precompute.base import PixelPrecomputeTask
 from utils import resolve_device, resolve_dtype
 
 
@@ -26,7 +26,7 @@ class PixelDatasetPrecomputer:
         self,
         *,
         vae_encoder: VAEEncoder,
-        precompute_strategy: PixelPrecomputeStrategy,
+        precompute_task: PixelPrecomputeTask,
         device: str | torch.device | None = None,
         dtype: torch.dtype | None = None,
     ) -> None:
@@ -35,7 +35,7 @@ class PixelDatasetPrecomputer:
 
         Args:
             vae_encoder: Encoder used to produce conditioning latents.
-            precompute_strategy: Strategy that defines dataset construction,
+            precompute_task: Strategy that defines dataset construction,
                 sample extraction, naming, and metadata generation.
             device: Target compute device. If omitted, CUDA is used when
                 available; otherwise CPU.
@@ -44,13 +44,13 @@ class PixelDatasetPrecomputer:
         self.dtype = resolve_dtype(self.device, dtype)
         self.vae_encoder = vae_encoder.to(self.device)
         self.vae_encoder.eval()
-        self.precompute_strategy = precompute_strategy
+        self.precompute_task = precompute_task
 
     @classmethod
     def from_pretrained(
         cls,
         *,
-        precompute_strategy: PixelPrecomputeStrategy,
+        precompute_task: PixelPrecomputeTask,
         device: str | torch.device | None = None,
         dtype: torch.dtype | None = None,
     ) -> PixelDatasetPrecomputer:
@@ -59,7 +59,7 @@ class PixelDatasetPrecomputer:
 
         Args:
             vae_path: Pretrained VAE source path or model identifier.
-            precompute_strategy: Strategy that defines dataset construction,
+            precompute_task: Strategy that defines dataset construction,
                 sample extraction, naming, and metadata generation.
             device: Target compute device. If omitted, CUDA is used when
                 available; otherwise CPU.
@@ -69,12 +69,12 @@ class PixelDatasetPrecomputer:
         """
         resolved_device = resolve_device(device)
         vae_encoder = VAEEncoder(
-            pretrained_path=precompute_strategy.ae_pretrained_path,
+            pretrained_path=precompute_task.ae_pretrained_path,
             device=resolved_device,
         )
         return cls(
             vae_encoder=vae_encoder,
-            precompute_strategy=precompute_strategy,
+            precompute_task=precompute_task,
             device=resolved_device,
             dtype=dtype,
         )
@@ -119,7 +119,7 @@ class PixelDatasetPrecomputer:
 
         out_dir.mkdir(parents=True, exist_ok=True)
 
-        train_ds, val_ds = self.precompute_strategy.build_dataset(root_dir=root_dir)
+        train_ds, val_ds = self.precompute_task.build_dataset(root_dir=root_dir)
 
         train_index_path = self._precompute_split(
             dataset=train_ds,
@@ -179,8 +179,8 @@ class PixelDatasetPrecomputer:
             progress_bar = tqdm(dataloader, desc=f"Precomputing {split_name}")
 
             for batch in progress_bar:
-                encoder_input = self.precompute_strategy.get_encoder_input(batch)
-                target_img = self.precompute_strategy.get_target_img(batch)
+                encoder_input = self.precompute_task.get_encoder_input(batch)
+                target_img = self.precompute_task.get_target_img(batch)
                 encoder_input = encoder_input.to(self.device, non_blocking=True)
 
                 if self.device.type == "cuda":
@@ -192,14 +192,14 @@ class PixelDatasetPrecomputer:
                 batch_size_actual = encoder_input.size(0)
 
                 for batch_idx in range(batch_size_actual):
-                    sample_name = self.precompute_strategy.get_sample_name(
+                    sample_name = self.precompute_task.get_sample_name(
                         dataset=dataset,
                         batch=batch,
                         batch_idx=batch_idx,
                         global_idx=global_idx + batch_idx,
                         split_name=split_name,
                     )
-                    metadata = self.precompute_strategy.get_metadata(
+                    metadata = self.precompute_task.get_metadata(
                         dataset=dataset,
                         batch=batch,
                         batch_idx=batch_idx,

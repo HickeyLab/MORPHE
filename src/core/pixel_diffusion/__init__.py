@@ -5,11 +5,11 @@ from .config import Cascade512TrainerConfig
 from .dataset import PrecomputedCascadeDataset
 from .evaluator import Cascade512Evaluator
 from .inferencer import PixelDiffusionInferencer
-from .precompute.base import PixelPrecomputeStrategy
-from .precompute.inpaint import InpaintPrecomputeStrategy
-from .precompute.outpaint import OutpaintPrecomputeStrategy
+from .precompute.base import PixelPrecomputeTask
+from .precompute.inpaint import InpaintPrecomputeTask
+from .precompute.outpaint import OutpaintPrecomputeTask
 from .precompute.pixel_dataset_precomputer import PixelDatasetPrecomputer
-from .precompute.three_dim import ThreeDimImputationPrecomputeStrategy
+from .precompute.three_dim import ThreeDimImputationPrecomputeTask
 from .trainer import Cascade512Trainer
 
 
@@ -19,10 +19,10 @@ __all__ = [
     "PrecomputedCascadeDataset",
     "Cascade512Evaluator",
     "PixelDiffusionInferencer",
-    "PixelPrecomputeStrategy",
-    "InpaintPrecomputeStrategy",
-    "OutpaintPrecomputeStrategy",
-    "ThreeDimImputationPrecomputeStrategy",
+    "PixelPrecomputeTask",
+    "InpaintPrecomputeTask",
+    "OutpaintPrecomputeTask",
+    "ThreeDimImputationPrecomputeTask",
     "PixelDatasetPrecomputer",
     "Cascade512Trainer",
 ]

@@ -8,14 +8,14 @@ import torch
 
 from core.latent_diffusion.data.builders import build_inpaint_dataset
 from core.latent_diffusion.data.datasets import InpaintDataset
-from core.pixel_diffusion.precompute.base import PixelPrecomputeStrategy
+from core.pixel_diffusion.precompute.base import PixelPrecomputeTask
 
 
 type InpaintBatch = tuple[torch.Tensor, torch.Tensor, torch.Tensor]
 
 
 @dataclass(frozen=True, slots=True)
-class InpaintPrecomputeStrategy(PixelPrecomputeStrategy):
+class InpaintPrecomputeTask(PixelPrecomputeTask):
     """
     Precompute strategy for inpainting pixel-diffusion training data.
 

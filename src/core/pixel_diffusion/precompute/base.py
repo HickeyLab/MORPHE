@@ -13,7 +13,7 @@ TDataset = TypeVar("TDataset", bound=Dataset)
 TBatch = TypeVar("TBatch")
 TMetadata = TypeVar("TMetadata", bound=dict[str, object])
 @dataclass(frozen=True)
-class PixelPrecomputeStrategy(ABC, Generic[TDataset, TBatch, TMetadata]):
+class PixelPrecomputeTask(ABC, Generic[TDataset, TBatch, TMetadata]):
     """
     Abstract interface for pixel-diffusion dataset precomputation strategies.
 

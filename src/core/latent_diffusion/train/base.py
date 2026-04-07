@@ -16,7 +16,7 @@ from core.latent_diffusion.architecture import LatentArchitectureSpec
 from core.latent_diffusion.train.train_config import LatentTrainerConfig
 
 
-class LatentTrainStrategy(ABC):
+class LatentTrainTask(ABC):
     """
     Minimal plugin-style strategy.
     Each task implements its own train_step logic.

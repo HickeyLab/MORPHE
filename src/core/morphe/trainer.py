@@ -17,12 +17,12 @@ from core.gcnn.config import GCNNTrainerConfig
 from core.gcnn.inferencer import GCNNInferencer
 from core.gcnn.trainer import GCNNTrainer
 from core.latent_diffusion.artifact import LatentDiffusionArtifact
-from core.latent_diffusion.train.base import LatentTrainStrategy
+from core.latent_diffusion.train.base import LatentTrainTask
 from core.latent_diffusion.train.train_config import LatentTrainerConfig
 from core.latent_diffusion.train.trainer import LatentDiffusionTrainer
 from core.pixel_diffusion.artifact import PixelDiffusionArtifact
 from core.pixel_diffusion.config import Cascade512TrainerConfig
-from core.pixel_diffusion.precompute.base import PixelPrecomputeStrategy
+from core.pixel_diffusion.precompute.base import PixelPrecomputeTask
 from core.pixel_diffusion.precompute.pixel_dataset_precomputer import (
     PixelDatasetPrecomputer,
 )
@@ -30,8 +30,8 @@ from core.pixel_diffusion.trainer import Cascade512Trainer
 from core.preprocessor.config import PreProcessConfig
 from core.preprocessor.preprocess import PreProcessor
 from core.registry import (
-    LATENT_TRAIN_STRATEGY_REGISTRY,
-    PRECOMPUTE_STRATEGY_REGISTRY,
+    LATENT_TRAIN_TASK_REGISTRY,
+    PRECOMPUTE_TASK_REGISTRY,
     InferenceMode,
 )
 from utils import resolve_device, resolve_dtype
@@ -60,7 +60,7 @@ class MorpheTrainer:
             torch.cuda.manual_seed_all(seed)
 
     @staticmethod
-    def _resolve_strategy(
+    def _resolve_task(
         *,
         provided: T | None,
         expected_cls: type[T],
@@ -93,8 +93,8 @@ class MorpheTrainer:
         autoencoder_trainer_config: AutoencoderTrainerConfig | None = None,
         gcnn_trainer_config: GCNNTrainerConfig | None = None,
         latent_diffusion_trainer_config: LatentTrainerConfig | None = None,
-        latent_training_strategy: LatentTrainStrategy | None = None,
-        pixel_diffusion_precomputer_strategy: PixelPrecomputeStrategy | None = None,
+        latent_training_task: LatentTrainTask | None = None,
+        pixel_diffusion_precomputer_task: PixelPrecomputeTask | None = None,
         pixel_diffusion_trainer_config: Cascade512TrainerConfig | None = None,
         autoencoder_artifact: AutoencoderArtifact | None = None,
         gcnn_artifact: GCNNArtifact | None = None,
@@ -184,11 +184,11 @@ class MorpheTrainer:
             root_dir,
         )
 
-        expected_latent_strategy_cls = LATENT_TRAIN_STRATEGY_REGISTRY[inference_mode]
-        resolved_latent_strategy = MorpheTrainer._resolve_strategy(
-            provided=latent_training_strategy,
-            expected_cls=expected_latent_strategy_cls,
-            arg_name="latent_training_strategy",
+        expected_latent_task_cls = LATENT_TRAIN_TASK_REGISTRY[inference_mode]
+        resolved_latent_task = MorpheTrainer._resolve_task(
+            provided=latent_training_task,
+            expected_cls=expected_latent_task_cls,
+            arg_name="latent_training_task",
             inference_mode=inference_mode,
         )
 
@@ -197,7 +197,7 @@ class MorpheTrainer:
                 print("[MorpheTrainer] Training latent diffusion component.")
 
             latent_diffusion_trainer = LatentDiffusionTrainer(
-                train_strategy=resolved_latent_strategy,
+                train_task=resolved_latent_task,
                 root_dir=root_dir,
                 cfg=latent_diffusion_trainer_config or LatentTrainerConfig(),
                 device=resolved_device,
@@ -216,13 +216,13 @@ class MorpheTrainer:
             print("[MorpheTrainer] Using provided latent diffusion artifact.")
 
         if pixel_diffusion_artifact is None:
-            expected_precompute_strategy_cls = PRECOMPUTE_STRATEGY_REGISTRY[
+            expected_precompute_task_cls = PRECOMPUTE_TASK_REGISTRY[
                 inference_mode
             ]
-            resolved_precompute_strategy = MorpheTrainer._resolve_strategy(
-                provided=pixel_diffusion_precomputer_strategy,
-                expected_cls=expected_precompute_strategy_cls,
-                arg_name="pixel_diffusion_precomputer_strategy",
+            resolved_precompute_task = MorpheTrainer._resolve_task(
+                provided=pixel_diffusion_precomputer_task,
+                expected_cls=expected_precompute_task_cls,
+                arg_name="pixel_diffusion_precomputer_task",
                 inference_mode=inference_mode,
             )
 
@@ -230,7 +230,7 @@ class MorpheTrainer:
                 print("[MorpheTrainer] Precomputing pixel diffusion dataset.")
 
             pd_precomputer = PixelDatasetPrecomputer.from_pretrained(
-                precompute_strategy=resolved_precompute_strategy,
+                precompute_task=resolved_precompute_task,
                 device=resolved_device,
                 dtype=resolved_dtype,
             )
