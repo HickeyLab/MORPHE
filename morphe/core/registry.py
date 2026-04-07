@@ -1,18 +1,18 @@
 from enum import StrEnum
 
-from constants import InferenceMode
-from core.latent_diffusion.inference.base import BaseLatentInferencer
-from core.latent_diffusion.inference.gapfill import GapfillInferencer
-from core.latent_diffusion.inference.inpaint import InpaintInferencer
-from core.latent_diffusion.inference.outpaint import OutpaintInferencer
-from core.latent_diffusion.inference.three_dim import ThreeDimImputationInferencer
-from core.latent_diffusion.train.base import LatentTrainTask
-from core.latent_diffusion.train.inpaint import InpaintTrainTask
-from core.latent_diffusion.train.outpaint import OutpaintTrainTask
-from core.latent_diffusion.train.three_dim import ThreeDimImputationTrainTask
-from core.pixel_diffusion.precompute.inpaint import InpaintPrecomputeTask
-from core.pixel_diffusion.precompute.outpaint import OutpaintPrecomputeTask
-from core.pixel_diffusion.precompute.three_dim import ThreeDimImputationPrecomputeTask
+from ..constants import InferenceMode
+from .latent_diffusion.inference.base import BaseLatentInferencer
+from .latent_diffusion.inference.gapfill import GapfillInferencer
+from .latent_diffusion.inference.inpaint import InpaintInferencer
+from .latent_diffusion.inference.outpaint import OutpaintInferencer
+from .latent_diffusion.inference.three_dim import ThreeDimImputationInferencer
+from .latent_diffusion.train.base import LatentTrainTask
+from .latent_diffusion.train.inpaint import InpaintTrainTask
+from .latent_diffusion.train.outpaint import OutpaintTrainTask
+from .latent_diffusion.train.three_dim import ThreeDimImputationTrainTask
+from .pixel_diffusion.precompute.inpaint import InpaintPrecomputeTask
+from .pixel_diffusion.precompute.outpaint import OutpaintPrecomputeTask
+from .pixel_diffusion.precompute.three_dim import ThreeDimImputationPrecomputeTask
     
 LATENT_INFERENCER_REGISTRY: dict[InferenceMode, type[BaseLatentInferencer]] = {
     InferenceMode.GAPFILL: GapfillInferencer,

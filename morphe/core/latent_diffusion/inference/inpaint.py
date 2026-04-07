@@ -10,12 +10,12 @@ import torch.nn.functional as F
 from PIL import Image
 from diffusers import AutoencoderKL, DDPMScheduler, UNet2DConditionModel # type: ignore
 
-from core.latent_diffusion.inference.base import BaseLatentInferencer
-from core.latent_diffusion.inference.run_config import InpaintRunConfig
-from core.latent_diffusion.model import CondEncoder, CoordEncoder
-from core.latent_diffusion.artifact import LatentDiffusionArtifact
-from constants import InferenceMode
-from utils import resolve_device, resolve_dtype
+from .base import BaseLatentInferencer
+from .run_config import InpaintRunConfig
+from ..model import CondEncoder, CoordEncoder
+from ..artifact import LatentDiffusionArtifact
+from ....constants import InferenceMode
+from ....utils import resolve_device, resolve_dtype
 from viz.decoded_img import plot_decoded_image, plot_inpainting_triplet
 
 

@@ -5,10 +5,10 @@ from typing import Any, Generic, Self, TypeVar
 import torch
 from diffusers import AutoencoderKL, DDPMScheduler, UNet2DConditionModel # type: ignore
 
-from core.latent_diffusion.inference.run_config import LatentBaseRunConfig
-from core.latent_diffusion.model import BBoxEncoder, CondEncoder, CondEncoder3D, CoordEncoder
-from utils import resolve_device, resolve_dtype
-from core.latent_diffusion.artifact import LatentDiffusionArtifact
+from .run_config import LatentBaseRunConfig
+from ..model import BBoxEncoder, CondEncoder, CondEncoder3D, CoordEncoder
+from ....utils import resolve_device, resolve_dtype
+from ..artifact import LatentDiffusionArtifact
 
 def _get_scaling_factor(vae: AutoencoderKL) -> float:
     return float(getattr(getattr(vae, "config", None), "scaling_factor", 0.18215))

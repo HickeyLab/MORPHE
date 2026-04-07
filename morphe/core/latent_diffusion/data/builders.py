@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from core.latent_diffusion.data.datasets import InpaintDataset, OutpaintDataset, Slice3DDataset
+from .datasets import InpaintDataset, OutpaintDataset, Slice3DDataset
 
 
 def build_inpaint_dataset(

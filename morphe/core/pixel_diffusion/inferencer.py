@@ -7,9 +7,9 @@ import torch
 from diffusers import DDPMScheduler  # type: ignore
 from torchvision import transforms
 
-from core.pixel_diffusion.artifact import PixelDiffusionArtifact
-from core.pixel_diffusion.models import LatentAdapter, UNet512
-from utils import resolve_device, resolve_dtype
+from .artifact import PixelDiffusionArtifact
+from .models import LatentAdapter, UNet512
+from ...utils import resolve_device, resolve_dtype
 
 
 class PixelDiffusionInferencer:

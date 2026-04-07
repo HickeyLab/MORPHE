@@ -6,8 +6,8 @@ from typing import Any
 
 import torch
 
-from constants import InferenceMode
-from core.latent_diffusion.architecture import LatentArchitectureSpec
+from ...constants import InferenceMode
+from .architecture import LatentArchitectureSpec
 
 
 @dataclass(frozen=True, slots=True)

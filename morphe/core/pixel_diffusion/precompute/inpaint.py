@@ -6,9 +6,9 @@ from typing import Literal
 
 import torch
 
-from core.latent_diffusion.data.builders import build_inpaint_dataset
-from core.latent_diffusion.data.datasets import InpaintDataset
-from core.pixel_diffusion.precompute.base import PixelPrecomputeTask
+from ...latent_diffusion.data.builders import build_inpaint_dataset
+from ...latent_diffusion.data.datasets import InpaintDataset
+from .base import PixelPrecomputeTask
 
 
 type InpaintBatch = tuple[torch.Tensor, torch.Tensor, torch.Tensor]

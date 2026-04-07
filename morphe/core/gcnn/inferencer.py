@@ -7,10 +7,10 @@ import pandas as pd
 import torch
 from torch_geometric.loader import DataLoader
 
-from core.gcnn.artifact import GCNNArtifact
-from core.gcnn.data import RegionGraphDataset
-from core.gcnn.model import GCNClassifier
-from utils import resolve_device, resolve_dtype
+from .artifact import GCNNArtifact
+from .data import RegionGraphDataset
+from .model import GCNClassifier
+from ...utils import resolve_device, resolve_dtype
 
 class GCNNInferencer:
     """

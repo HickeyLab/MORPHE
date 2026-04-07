@@ -6,7 +6,7 @@ from typing import Any, Mapping
 import torch
 from diffusers import DDPMScheduler, UNet2DConditionModel, AutoencoderKL  # type: ignore
 
-from core.latent_diffusion.model import BBoxEncoder, CondEncoder, CondEncoder3D, CoordEncoder
+from .model import BBoxEncoder, CondEncoder, CondEncoder3D, CoordEncoder
 
 
 @dataclass(frozen=True, slots=True)

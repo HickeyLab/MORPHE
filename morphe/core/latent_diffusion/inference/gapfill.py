@@ -9,12 +9,12 @@ from PIL import Image
 from torchvision import transforms
 from diffusers import AutoencoderKL, DDPMScheduler, UNet2DConditionModel # type: ignore
 
-from core.latent_diffusion.artifact import LatentDiffusionArtifact
-from core.latent_diffusion.inference.base import BaseLatentInferencer
-from core.latent_diffusion.inference.run_config import GapfillRunConfig
-from core.latent_diffusion.model import BBoxEncoder, CondEncoder
-from constants import InferenceMode
-from utils import resolve_device, resolve_dtype
+from ..artifact import LatentDiffusionArtifact
+from .base import BaseLatentInferencer
+from .run_config import GapfillRunConfig
+from ..model import BBoxEncoder, CondEncoder
+from ....constants import InferenceMode
+from ....utils import resolve_device, resolve_dtype
 from viz.decoded_img import plot_decoded_image
 
 

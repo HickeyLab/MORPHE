@@ -7,8 +7,8 @@ from typing import Any, Mapping, Self
 import torch
 from diffusers import DDPMScheduler  # type: ignore
 
-from core.pixel_diffusion.models import LatentAdapter, UNet512
-from utils import resolve_device, resolve_dtype, set_config_attr
+from .models import LatentAdapter, UNet512
+from ...utils import resolve_device, resolve_dtype, set_config_attr
 
 
 @dataclass(frozen=True)

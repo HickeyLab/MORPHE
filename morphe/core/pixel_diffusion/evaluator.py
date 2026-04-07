@@ -8,8 +8,8 @@ import torchvision.utils as vutils
 from accelerate import Accelerator
 from diffusers import AutoencoderKL, DDPMScheduler # type: ignore
 
-from core.pixel_diffusion.config import Cascade512TrainerConfig
-from core.pixel_diffusion.models import LatentAdapter, UNet512
+from .config import Cascade512TrainerConfig
+from .models import LatentAdapter, UNet512
 from viz.cell_diagram_chart import save_side_by_side_barplot
 
 

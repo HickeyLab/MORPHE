@@ -5,8 +5,8 @@ from pathlib import Path
 from typing import Self
 import torch
 
-from utils import resolve_device, resolve_dtype
-from core.autoencoder.model import Autoencoder
+from ...utils import resolve_device, resolve_dtype
+from .model import Autoencoder
 
 
 @dataclass(frozen=True)

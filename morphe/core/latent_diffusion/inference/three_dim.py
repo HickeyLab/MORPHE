@@ -10,12 +10,12 @@ from torchvision import transforms
 from tqdm import tqdm
 from diffusers import AutoencoderKL, DDPMScheduler, UNet2DConditionModel # type: ignore
 
-from core.latent_diffusion.artifact import LatentDiffusionArtifact
-from core.latent_diffusion.inference.base import BaseLatentInferencer
-from core.latent_diffusion.inference.run_config import ThreeDimImputationRunConfig, ThreeDimImputationWeightSweepConfig
-from core.latent_diffusion.model import CondEncoder3D
-from constants import InferenceMode
-from utils import resolve_device, resolve_dtype
+from ..artifact import LatentDiffusionArtifact
+from .base import BaseLatentInferencer
+from .run_config import ThreeDimImputationRunConfig, ThreeDimImputationWeightSweepConfig
+from ..model import CondEncoder3D
+from ....constants import InferenceMode
+from ....utils import resolve_device, resolve_dtype
 
 
 class ThreeDimImputationInferencer(BaseLatentInferencer):

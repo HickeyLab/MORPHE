@@ -2,7 +2,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from core.latent_diffusion.train.trainer import LatentDiffusionTrainer
+    from .trainer import LatentDiffusionTrainer
 
 from abc import ABC, abstractmethod
 from pathlib import Path
@@ -11,9 +11,9 @@ from typing import Any, Tuple
 import torch
 from torch.utils.data import Dataset
 
-from constants import InferenceMode
-from core.latent_diffusion.architecture import LatentArchitectureSpec
-from core.latent_diffusion.train.train_config import LatentTrainerConfig
+from ....constants import InferenceMode
+from ..architecture import LatentArchitectureSpec
+from .train_config import LatentTrainerConfig
 
 
 class LatentTrainTask(ABC):

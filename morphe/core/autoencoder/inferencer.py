@@ -6,10 +6,10 @@ import numpy as np
 import pandas as pd
 import torch
 
-from core.autoencoder.artifact import AutoencoderArtifact
-from core.autoencoder.model import Autoencoder
-from core.autoencoder.utils.rasterize import rasterize_rgb_regions
-from utils import resolve_device, resolve_dtype
+from .artifact import AutoencoderArtifact
+from .model import Autoencoder
+from .utils.rasterize import rasterize_rgb_regions
+from ...utils import resolve_device, resolve_dtype
 
 
 class AutoencoderInferencer:

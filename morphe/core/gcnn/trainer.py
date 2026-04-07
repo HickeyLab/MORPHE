@@ -10,11 +10,11 @@ import torch.nn.functional as F
 from torch.optim import Adam, Optimizer
 from torch_geometric.loader import DataLoader
 
-from utils import resolve_device
-from core.gcnn.artifact import GCNNArtifact
-from core.gcnn.config import GCNNTrainerConfig
-from core.gcnn.data import RegionGraphDataset
-from core.gcnn.model import GCNClassifier
+from ...utils import resolve_device
+from .artifact import GCNNArtifact
+from .config import GCNNTrainerConfig
+from .data import RegionGraphDataset
+from .model import GCNClassifier
 
 
 class GCNNTrainer:

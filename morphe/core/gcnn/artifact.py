@@ -6,8 +6,8 @@ from pathlib import Path
 
 import torch
 
-from utils import resolve_device, resolve_dtype
-from core.gcnn.model import GCNClassifier
+from ...utils import resolve_device, resolve_dtype
+from .model import GCNClassifier
 
 
 @dataclass(frozen=True, slots=True)

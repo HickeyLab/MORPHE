@@ -11,12 +11,12 @@ from diffusers import AutoencoderKL, DDPMScheduler  # type: ignore
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-from core.pixel_diffusion.dataset import PrecomputedCascadeDataset
-from core.pixel_diffusion.artifact import PixelDiffusionArtifact
-from core.pixel_diffusion.config import Cascade512TrainerConfig
-from core.pixel_diffusion.evaluator import Cascade512Evaluator
-from core.pixel_diffusion.models import LatentAdapter, UNet512
-from utils import get_config_attr, resolve_device, set_config_attr
+from .dataset import PrecomputedCascadeDataset
+from .artifact import PixelDiffusionArtifact
+from .config import Cascade512TrainerConfig
+from .evaluator import Cascade512Evaluator
+from .models import LatentAdapter, UNet512
+from ...utils import get_config_attr, resolve_device, set_config_attr
 
 
 class Cascade512Trainer:

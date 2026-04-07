@@ -8,9 +8,9 @@ import torch
 from torch.utils.data import DataLoader, Dataset
 from tqdm.auto import tqdm
 
-from core.latent_diffusion.model import VAEEncoder
-from core.pixel_diffusion.precompute.base import PixelPrecomputeTask
-from utils import resolve_device, resolve_dtype
+from ...latent_diffusion.model import VAEEncoder
+from .base import PixelPrecomputeTask
+from ....utils import resolve_device, resolve_dtype
 
 
 class PixelDatasetPrecomputer:

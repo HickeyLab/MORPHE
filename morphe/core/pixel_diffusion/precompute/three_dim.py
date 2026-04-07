@@ -5,9 +5,9 @@ from typing import Literal
 
 import torch
 
-from core.latent_diffusion.data.builders import build_three_dim_dataset
-from core.latent_diffusion.data.datasets import Slice3DDataset
-from core.pixel_diffusion.precompute.base import PixelPrecomputeTask
+from ...latent_diffusion.data.builders import build_three_dim_dataset
+from ...latent_diffusion.data.datasets import Slice3DDataset
+from .base import PixelPrecomputeTask
 
 
 type ThreeDimBatch = tuple[

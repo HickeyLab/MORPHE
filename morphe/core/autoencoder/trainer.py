@@ -12,10 +12,10 @@ from torch.optim import Adam, Optimizer
 from torch.utils.data import DataLoader, TensorDataset, random_split
 from tqdm import tqdm
 
-from core.autoencoder.config import AutoencoderTrainerConfig
-from utils import resolve_device
-from core.autoencoder.artifact import AutoencoderArtifact
-from core.autoencoder.model import Autoencoder
+from .config import AutoencoderTrainerConfig
+from ...utils import resolve_device
+from .artifact import AutoencoderArtifact
+from .model import Autoencoder
 
 
 @dataclass(frozen=True, slots=True)

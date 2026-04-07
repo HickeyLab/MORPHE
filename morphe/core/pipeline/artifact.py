@@ -6,11 +6,11 @@ from typing import Self
 
 import torch
 
-from core.preprocessor.config import PreProcessConfig
-from core.autoencoder.artifact import AutoencoderArtifact
-from core.gcnn.artifact import GCNNArtifact
-from core.latent_diffusion.artifact import LatentDiffusionArtifact
-from core.pixel_diffusion.artifact import PixelDiffusionArtifact
+from ..preprocessor.config import PreProcessConfig
+from ..autoencoder.artifact import AutoencoderArtifact
+from ..gcnn.artifact import GCNNArtifact
+from ..latent_diffusion.artifact import LatentDiffusionArtifact
+from ..pixel_diffusion.artifact import PixelDiffusionArtifact
 
 
 @dataclass(frozen=True, slots=True)

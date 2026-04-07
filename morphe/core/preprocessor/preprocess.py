@@ -2,7 +2,7 @@ import copy
 
 import pandas as pd
 
-from core.preprocessor.config import PreProcessConfig
+from .config import PreProcessConfig
 
 
 class PreProcessor:

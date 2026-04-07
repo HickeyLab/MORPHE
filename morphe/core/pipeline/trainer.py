@@ -8,33 +8,33 @@ import numpy as np
 import pandas as pd
 import torch
 
-from core.autoencoder.artifact import AutoencoderArtifact
-from core.autoencoder.config import AutoencoderTrainerConfig
-from core.autoencoder.inferencer import AutoencoderInferencer
-from core.autoencoder.trainer import AutoencoderTrainer
-from core.gcnn.artifact import GCNNArtifact
-from core.gcnn.config import GCNNTrainerConfig
-from core.gcnn.inferencer import GCNNInferencer
-from core.gcnn.trainer import GCNNTrainer
-from core.latent_diffusion.artifact import LatentDiffusionArtifact
-from core.latent_diffusion.train.base import LatentTrainTask
-from core.latent_diffusion.train.train_config import LatentTrainerConfig
-from core.latent_diffusion.train.trainer import LatentDiffusionTrainer
-from core.pixel_diffusion.artifact import PixelDiffusionArtifact
-from core.pixel_diffusion.config import Cascade512TrainerConfig
-from core.pixel_diffusion.precompute.base import PixelPrecomputeTask
-from core.pixel_diffusion.precompute.pixel_dataset_precomputer import (
+from ..autoencoder.artifact import AutoencoderArtifact
+from ..autoencoder.config import AutoencoderTrainerConfig
+from ..autoencoder.inferencer import AutoencoderInferencer
+from ..autoencoder.trainer import AutoencoderTrainer
+from ..gcnn.artifact import GCNNArtifact
+from ..gcnn.config import GCNNTrainerConfig
+from ..gcnn.inferencer import GCNNInferencer
+from ..gcnn.trainer import GCNNTrainer
+from ..latent_diffusion.artifact import LatentDiffusionArtifact
+from ..latent_diffusion.train.base import LatentTrainTask
+from ..latent_diffusion.train.train_config import LatentTrainerConfig
+from ..latent_diffusion.train.trainer import LatentDiffusionTrainer
+from ..pixel_diffusion.artifact import PixelDiffusionArtifact
+from ..pixel_diffusion.config import Cascade512TrainerConfig
+from ..pixel_diffusion.precompute.base import PixelPrecomputeTask
+from ..pixel_diffusion.precompute.pixel_dataset_precomputer import (
     PixelDatasetPrecomputer,
 )
-from core.pixel_diffusion.trainer import Cascade512Trainer
-from core.preprocessor.config import PreProcessConfig
-from core.preprocessor.preprocess import PreProcessor
-from core.registry import (
+from ..pixel_diffusion.trainer import Cascade512Trainer
+from ..preprocessor.config import PreProcessConfig
+from ..preprocessor.preprocess import PreProcessor
+from ..registry import (
     LATENT_TRAIN_TASK_REGISTRY,
     PRECOMPUTE_TASK_REGISTRY,
     InferenceMode,
 )
-from utils import resolve_device, resolve_dtype
+from ...utils import resolve_device, resolve_dtype
 
 from .artifact import MorpheArtifact
 

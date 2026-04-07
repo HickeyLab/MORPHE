@@ -8,14 +8,14 @@ import torch
 from torch.utils.data import Dataset
 import torch.nn.functional as F
 
-from constants import InferenceMode
-from core.latent_diffusion.architecture import LatentArchitectureSpec
-from core.latent_diffusion.data.builders import build_three_dim_dataset
-from core.latent_diffusion.train.base import LatentTrainTask
-from core.latent_diffusion.train.train_config import LatentTrainerConfig
-from utils import get_config_attr
+from ....constants import InferenceMode
+from ..architecture import LatentArchitectureSpec
+from ..data.builders import build_three_dim_dataset
+from .base import LatentTrainTask
+from .train_config import LatentTrainerConfig
+from ....utils import get_config_attr
 if TYPE_CHECKING:
-    from core.latent_diffusion.train.trainer import LatentDiffusionTrainer
+    from .trainer import LatentDiffusionTrainer
 
 
 @dataclass(frozen=True)
