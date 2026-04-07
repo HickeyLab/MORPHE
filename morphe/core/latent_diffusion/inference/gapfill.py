@@ -15,7 +15,7 @@ from .run_config import GapfillRunConfig
 from ..model import BBoxEncoder, CondEncoder
 from ....constants import InferenceMode
 from ....utils import resolve_device, resolve_dtype
-from viz.decoded_img import plot_decoded_image
+from ....viz.decoded_img import plot_decoded_image
 
 
 class GapfillInferencer(BaseLatentInferencer):

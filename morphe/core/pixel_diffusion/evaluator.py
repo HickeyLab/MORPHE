@@ -10,7 +10,7 @@ from diffusers import AutoencoderKL, DDPMScheduler # type: ignore
 
 from .config import Cascade512TrainerConfig
 from .models import LatentAdapter, UNet512
-from viz.cell_diagram_chart import save_side_by_side_barplot
+from ...viz.cell_diagram_chart import save_side_by_side_barplot
 
 
 type CascadeBatch = tuple[torch.Tensor, torch.Tensor]

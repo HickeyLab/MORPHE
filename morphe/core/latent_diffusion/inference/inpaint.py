@@ -16,7 +16,7 @@ from ..model import CondEncoder, CoordEncoder
 from ..artifact import LatentDiffusionArtifact
 from ....constants import InferenceMode
 from ....utils import resolve_device, resolve_dtype
-from viz.decoded_img import plot_decoded_image, plot_inpainting_triplet
+from ....viz.decoded_img import plot_decoded_image, plot_inpainting_triplet
 
 
 class InpaintInferencer(BaseLatentInferencer):

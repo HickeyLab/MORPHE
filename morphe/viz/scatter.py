@@ -3,7 +3,7 @@ from matplotlib.axes import Axes
 import pandas as pd
 import seaborn as sns
 
-from viz.constants import DEFAULT_CELL_TYPE_COLORS
+from .constants import DEFAULT_CELL_TYPE_COLORS
 
 def show_cell_region_scatterplot(
     df: pd.DataFrame,
