@@ -6,7 +6,7 @@ from .configs import (
     GCNNTrainerConfig,
     AutoencoderTrainerConfig,
     LatentTrainerConfig,
-    PixelDiffusionTrainer,
+    PixelDiffusionTrainerConfig,
 )
 from .tasks import InferenceMode
 
@@ -18,6 +18,6 @@ __all__ = [
     "GCNNTrainerConfig",
     "AutoencoderTrainerConfig",
     "LatentTrainerConfig",
-    "PixelDiffusionTrainer",
+    "PixelDiffusionTrainerConfig",
     "InferenceMode",
 ]
