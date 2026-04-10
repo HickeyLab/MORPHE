@@ -93,7 +93,7 @@ MORPHE/
 ## Recommended Operating System
 We recommend users to use Google Colab with A100 GPU for running this repository, which dependencies should be:
 
-`Python==3.12 torch==2.10.0+cu128 torchvision==0.25.0+cu128 torchaudio==2.10.0+cu128 CUDA==12.8 cuDNN==9.1 numpy==2.0.2 scipy==1.16.3 pandas==2.2.2 matplotlib==3.10.0 scikit-learn==1.6.1 opencv-python==4.13.0 tensorboard==2.19.0`
+`Python==3.12 torch==2.10.0+cu128 torchvision==0.25.0+cu128 torchaudio==2.10.0+cu128 CUDA==12.8 cuDNN==9.1 numpy==2.0.2 scipy==1.16.3 pandas==2.2.2 matplotlib==3.10.0 scikit-learn==1.6.1 opencv-python==4.13.0 tensorboard==2.19.0 diffusers==0.37.1`
 
 ## Recommended execution order
 
@@ -187,7 +187,11 @@ MERFISH whole mouse brain atlas: https://cellxgene.cziscience.com/collections/0c
 For Additional Inpainting task test:
 MERFISH mouse cortex dataset: https://doi.org/10.35077/g.21
 
-## Expected Running Time
+## Expected Time Cost
+For setting environment:
+With Google Colab-A100 GPU, setting up all dependencies 
+
+For running:
 With Google Colab-A100 GPU, training time for both classifier and autoencoder should within 30 minutes. Training latent diffusion and pixel diffusion will cost 1-2 hour based on batch size (In our study, training on the whole CODEX intestine dataset will cost approximately 3 hours in total). 
 
 #### Affiliations
