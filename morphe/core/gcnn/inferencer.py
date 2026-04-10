@@ -26,6 +26,8 @@ class GCNNInferencer:
         *,
         artifact: GCNNArtifact,
         model: GCNClassifier,
+        device: torch.device,
+        dtype: torch.dtype,
     ) -> None:
         """
         Initialize the inferencer.
@@ -36,6 +38,8 @@ class GCNNInferencer:
         """
         self.artifact = artifact
         self.model = model
+        self.device = resolve_device(device)
+        self.dtype = resolve_dtype(self.device, dtype)
 
     @classmethod
     def from_artifact(
@@ -63,7 +67,7 @@ class GCNNInferencer:
         dtype = resolve_dtype(device, dtype)
         model = artifact.build_model(device=device, dtype=dtype)
         
-        return cls(artifact=artifact, model=model)
+        return cls(artifact=artifact, model=model, device=device, dtype=dtype)
 
     def predict_proba(
         self,
@@ -104,13 +108,14 @@ class GCNNInferencer:
         )
         loader = DataLoader(dataset, batch_size=batch_size, shuffle=shuffle)
 
-        model_device = next(self.model.parameters()).device
         all_probs: list[np.ndarray] = []
         all_rows: list[np.ndarray] = []
-
+                
         with torch.no_grad():
             for batch in loader:
-                batch = batch.to(model_device)
+                batch = batch.to(self.device)
+                batch.x = batch.x.to(dtype=self.dtype)
+
                 out = self.model(batch.x, batch.edge_index)
                 probs = torch.softmax(out, dim=1).cpu().numpy()
 
