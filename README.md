@@ -175,10 +175,13 @@ Fine-tune Existign Image Generative Models (FluxFill and StableDiffusion2):
 
 ## Datasets We Use
 All data are freely available from public resources:  
+
 For Inpainting/Outpainting/2D Imputation tasks:
 CODEX intestine dataset: https://datadryad.org/dataset/doi:10.5061/dryad.pk0p2ngrf
+
 For 3D Imputation task:
 MERFISH whole mouse brain atlas: https://cellxgene.cziscience.com/collections/0cca8620-8dee-45d0-aef5-23f032a5cf09
+
 For Additional Inpainting task test:
 MERFISH mouse cortex dataset: https://doi.org/10.35077/g.21
 
