@@ -91,7 +91,9 @@ MORPHE/
 ```
 
 ## Recommended Operating System
-We recommend users to use Google Colab with A100 GPU for running this repository
+We recommend users to use Google Colab with A100 GPU for running this repository, which dependencies should be:
+
+Python==3.12 torch==2.10.0+cu128 torchvision==0.25.0+cu128 torchaudio==2.10.0+cu128 CUDA==12.8 cuDNN==9.1 numpy==2.0.2 scipy==1.16.3 pandas==2.2.2 matplotlib==3.10.0 scikit-learn==1.6.1 opencv-python==4.13.0 tensorboard==2.19.0
 
 ## Recommended execution order
 
