@@ -170,7 +170,7 @@ Alternative
 
 - `Alternative/MLP_classifier.ipynb` - baseline classifier for comparison to GCNN
 
-Fine-tune Existign Image Generative Models (FluxFill and StableDiffusion2):
+Fine-tune Existing Image Generative Models (FluxFill and StableDiffusion2):
 
 - `Finetune/Fluxfill/Train_Fluxfill.py`
 - `Finetune/SD2/Train_SD2.py`
@@ -186,6 +186,9 @@ MERFISH whole mouse brain atlas: https://cellxgene.cziscience.com/collections/0c
 
 For Additional Inpainting task test:
 MERFISH mouse cortex dataset: https://doi.org/10.35077/g.21
+
+## Expected Running Time
+With Google Colab-A100 GPU, training time for both classifier and autoencoder should within 30 minutes. Training latent diffusion and pixel diffusion will cost 1-2 hour based on batch size (In our study, training on the whole CODEX intestine dataset will cost approximately 3 hours in total). 
 
 #### Affiliations
 <p align="left">
