@@ -89,6 +89,10 @@ MORPHE/
 │                      
 └── README.md
 ```
+
+## Recommended Operating System
+We recommend users to use Google Colab with A100 GPU for running this repository
+
 ## Recommended execution order
 
 ### 1. Preprocessing Pipeline (Optional)
@@ -168,6 +172,12 @@ Fine-tune Existign Image Generative Models (FluxFill and StableDiffusion2):
 
 - `Finetune/Fluxfill/Train_Fluxfill.py`
 - `Finetune/SD2/Train_SD2.py`
+
+## Dataset We Use
+All data are freely available from public resources:  
+CODEX intestine dataset: https://datadryad.org/dataset/doi:10.5061/dryad.pk0p2ngrf
+MERFISH whole mouse brain atlas: https://cellxgene.cziscience.com/collections/0cca8620-8dee-45d0-aef5-23f032a5cf09
+MERFISH mouse cortex dataset: https://doi.org/10.35077/g.21
 
 #### Affiliations
 <p align="left">
