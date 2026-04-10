@@ -112,7 +112,7 @@ Input: Processed spatial omics cell maps.
 
 Output: Embedded image for each cell map.
 
-### 3. Latent Diffusion Generator. 
+### 3. Latent Diffusion Generator
 
 Input: Split images (.pngs) into training and val set.
 
@@ -134,7 +134,7 @@ Choose one of the usecases for training & inference here:
 
 Output: Raw Latent feature (".pt" files, shape: 4×64×64) for the refining module.
 
-### 4. Refining. 
+### 4. Refining
 
 Input: Raw Latent feature (".pt" files, shape: 4×64×64)
 
@@ -173,10 +173,13 @@ Fine-tune Existign Image Generative Models (FluxFill and StableDiffusion2):
 - `Finetune/Fluxfill/Train_Fluxfill.py`
 - `Finetune/SD2/Train_SD2.py`
 
-## Dataset We Use
+## Datasets We Use
 All data are freely available from public resources:  
+For Inpainting/Outpainting/2D Imputation tasks:
 CODEX intestine dataset: https://datadryad.org/dataset/doi:10.5061/dryad.pk0p2ngrf
+For 3D Imputation task:
 MERFISH whole mouse brain atlas: https://cellxgene.cziscience.com/collections/0cca8620-8dee-45d0-aef5-23f032a5cf09
+For Additional Inpainting task test:
 MERFISH mouse cortex dataset: https://doi.org/10.35077/g.21
 
 #### Affiliations
