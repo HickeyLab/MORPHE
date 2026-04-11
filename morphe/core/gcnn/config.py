@@ -53,7 +53,7 @@ class GCNNTrainerConfig:
     """
     # dataset/schema
     label_col: str = "Cell Type"
-    region_col: str = "unique_region"
+    region_col: str = "region"
     pos_cols: tuple[str, str] = ("x", "y")
     k_neighbors: int = 20
     batch_size: int = 1

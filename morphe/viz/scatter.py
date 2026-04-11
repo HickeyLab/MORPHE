@@ -8,7 +8,7 @@ from .constants import DEFAULT_CELL_TYPE_COLORS
 def show_cell_region_scatterplot(
     df: pd.DataFrame,
     *,
-    region_name: str,
+    region_name: str = "region",
     x: str = "x",
     y: str = "y",
     cell_type_col: str = "Cell Type",
@@ -18,7 +18,7 @@ def show_cell_region_scatterplot(
     s: float = 6,
 ) -> Axes:   
     # Validate region name
-    region_df = df.groupby("unique_region").get_group(region_name)
+    region_df = df.groupby(region_name).get_group(region_name)
     if region_df.empty:
         raise ValueError(f"Region '{region_name}' not found")
     

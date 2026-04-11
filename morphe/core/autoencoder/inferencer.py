@@ -390,6 +390,11 @@ class AutoencoderInferencer:
         self,
         result_df: pd.DataFrame,
         save_dir: str | Path,
+        
+        r_col: str = "R",
+        g_col: str = "G",
+        b_col: str = "B",
+        region_col: str = "region",
     ) -> pd.DataFrame:
         """
         Add RGB columns to a dataframe and rasterize the result by region.
@@ -403,7 +408,12 @@ class AutoencoderInferencer:
             A copy of the input dataframe with added RGB columns.
         """
         save_dir = Path(save_dir)
-        result_df = self.encode_to_rgb_df(result_df)
+        result_df = self.encode_to_rgb_df(
+            df=result_df,
+            r_col=r_col,
+            g_col=g_col,
+            b_col=b_col,
+        )
 
         rasterize_rgb_regions(result_df, save_dir)
 

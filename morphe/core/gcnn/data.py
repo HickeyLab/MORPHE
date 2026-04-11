@@ -36,7 +36,7 @@ class RegionGraphDataset(Dataset):
         feature_cols: Sequence[str],
         label_col: str | None = "Cell Type",
         *,
-        region_col: str = "unique_region",
+        region_col: str = "region",
         pos_cols: Sequence[str] = ("x", "y"),
         k_neighbors: int = 20,
         classes_: Sequence[str] | None = None,
