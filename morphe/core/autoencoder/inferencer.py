@@ -46,9 +46,11 @@ class AutoencoderInferencer:
         """
         self.device = resolve_device(device)
         self.dtype = resolve_dtype(self.device, dtype)
-        
+
         self.artifact = artifact
-        self.model: Autoencoder = artifact.build_model(device=self.device, dtype=self.dtype)
+        self.model: Autoencoder = artifact.build_model(
+            device=self.device, dtype=self.dtype
+        )
 
     @classmethod
     def from_artifact(
@@ -76,7 +78,9 @@ class AutoencoderInferencer:
             TypeError: If ``artifact`` is not an ``AutoencoderArtifact``.
         """
         if not isinstance(artifact, AutoencoderArtifact):
-            raise TypeError("Expected artifact to be an instance of AutoencoderArtifact.")
+            raise TypeError(
+                "Expected artifact to be an instance of AutoencoderArtifact."
+            )
 
         return cls(
             artifact=artifact,
@@ -195,13 +199,17 @@ class AutoencoderInferencer:
             raise TypeError("rgb must be a torch.Tensor.")
 
         if rgb.ndim not in (2, 3):
-            raise ValueError(f"rgb must have ndim 2 or 3, got shape {tuple(rgb.shape)}.")
+            raise ValueError(
+                f"rgb must have ndim 2 or 3, got shape {tuple(rgb.shape)}."
+            )
 
         if rgb.ndim == 2 and rgb.shape[1] != 3:
             raise ValueError(f"2D rgb must have shape (n, 3), got {tuple(rgb.shape)}.")
 
         if rgb.ndim == 3 and rgb.shape[0] != 3:
-            raise ValueError(f"3D rgb must have shape (3, h, w), got {tuple(rgb.shape)}.")
+            raise ValueError(
+                f"3D rgb must have shape (3, h, w), got {tuple(rgb.shape)}."
+            )
 
     def _validate_rgb_image(
         self,
@@ -290,7 +298,9 @@ class AutoencoderInferencer:
             b_col=b_col,
         )
 
-        emb_matrix = df.loc[:, self.artifact.input_cols].to_numpy(dtype=np.float32, copy=True)
+        emb_matrix = df.loc[:, self.artifact.input_cols].to_numpy(
+            dtype=np.float32, copy=True
+        )
         rgb_3d = self.encode_to_rgb(emb_matrix)
 
         out = df.copy()
@@ -390,11 +400,10 @@ class AutoencoderInferencer:
         self,
         result_df: pd.DataFrame,
         save_dir: str | Path,
-        
         r_col: str = "R",
         g_col: str = "G",
         b_col: str = "B",
-        region_col: str = "region",
+        region_col: str = "unique_region",
     ) -> pd.DataFrame:
         """
         Add RGB columns to a dataframe and rasterize the result by region.

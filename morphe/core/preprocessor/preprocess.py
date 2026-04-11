@@ -87,7 +87,7 @@ class PreProcessor:
         self,
         df_initial: pd.DataFrame,
         original_dimensions: tuple[int, int],
-        region_col: str = "region",
+        region_col: str = "unique_region",
         *,
         verbose: bool = False,
     ) -> tuple[pd.DataFrame, tuple[int, int]]:
@@ -178,7 +178,7 @@ class PreProcessor:
         df: pd.DataFrame,
         *,
         verbose: bool = False,
-        region_col: str = "region",
+        region_col: str = "unique_region",
     ) -> tuple[pd.DataFrame, tuple[int, int]]:
         """
         Run preprocessing on the input dataframe.

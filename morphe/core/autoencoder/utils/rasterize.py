@@ -12,7 +12,7 @@ def rasterize_rgb_regions(
     result_df: pd.DataFrame,
     save_dir: str | Path,
     *,
-    region_col: str = "region",
+    region_col: str = "unique_region",
     x_col: str = "x",
     y_col: str = "y",
     r_col: str = "R",
@@ -59,7 +59,7 @@ def rasterize_rgb_regions(
     Raises:
         KeyError: If required columns are missing from ``result_df``.
     """
-    
+
     save_dir = Path(save_dir)
     save_dir.mkdir(parents=True, exist_ok=True)
 

@@ -36,7 +36,7 @@ class RegionGraphDataset(Dataset):
         feature_cols: Sequence[str],
         label_col: str | None = "Cell Type",
         *,
-        region_col: str = "region",
+        region_col: str = "unique_region",
         pos_cols: Sequence[str] = ("x", "y"),
         k_neighbors: int = 20,
         classes_: Sequence[str] | None = None,
@@ -88,9 +88,7 @@ class RegionGraphDataset(Dataset):
             self.df[self.label_col] = self.df[self.label_col].map(label_to_index)
 
             if self.df[self.label_col].isna().any():
-                raise ValueError(
-                    "label_col contains labels not present in classes_."
-                )
+                raise ValueError("label_col contains labels not present in classes_.")
         else:
             self.classes_ = None
 
@@ -126,14 +124,14 @@ class RegionGraphDataset(Dataset):
                             edge_list.append([i, nbr])
 
                 edge_index = torch.tensor(edge_list, dtype=torch.long).t().contiguous()
-                
+
                 # TODO: .uniqe() blowing up memory. temporarily removing
                 # Make graph undirected
                 edge_index = torch.cat(
                     [edge_index, edge_index.flip(0)],
                     dim=1,
                 )
-                #.unique(dim=1)
+                # .unique(dim=1)
 
             # Create PyG Data object
             x = torch.tensor(features, dtype=torch.float32)

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+
 @dataclass(frozen=True, slots=True)
 class GCNNTrainerConfig:
     """
@@ -51,9 +52,10 @@ class GCNNTrainerConfig:
             epochs=50,
         )
     """
+
     # dataset/schema
     label_col: str = "Cell Type"
-    region_col: str = "region"
+    region_col: str = "unique_region"
     pos_cols: tuple[str, str] = ("x", "y")
     k_neighbors: int = 20
     batch_size: int = 1
@@ -68,7 +70,7 @@ class GCNNTrainerConfig:
     lr: float = 1e-4
     weight_decay: float = 1e-5
     epochs: int = 40
-    
+
     def __post_init__(self) -> None:
         self.validate()
 
@@ -90,12 +92,12 @@ class GCNNTrainerConfig:
             raise TypeError("k_neighbors must be an int.")
         if self.k_neighbors < 1:
             raise ValueError("k_neighbors must be >= 1.")
-        
+
         if not isinstance(self.batch_size, int):
             raise TypeError(f"batch_size must be an int, got {type(self.batch_size)}")
         if self.batch_size <= 0:
             raise ValueError("batch_size must be > 0")
-        
+
         # dataset/schema
         if not isinstance(self.hidden_channels, int):
             raise TypeError("hidden_channels must be an int.")
