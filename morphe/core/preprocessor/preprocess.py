@@ -87,6 +87,7 @@ class PreProcessor:
         self,
         df_initial: pd.DataFrame,
         original_dimensions: tuple[int, int],
+        region_col: str = "region",
         *,
         verbose: bool = False,
     ) -> tuple[pd.DataFrame, tuple[int, int]]:
@@ -132,7 +133,7 @@ class PreProcessor:
                 print(f"Current dimensions: {dimensions}")
 
             df = copy.deepcopy(df_initial)
-            grouped_by_region = df.groupby("unique_region")
+            grouped_by_region = df.groupby(region_col)
             restart_outer_loop = False
 
             coords: set[tuple[int, int]] = set()
@@ -177,6 +178,7 @@ class PreProcessor:
         df: pd.DataFrame,
         *,
         verbose: bool = False,
+        region_col: str = "region",
     ) -> tuple[pd.DataFrame, tuple[int, int]]:
         """
         Run preprocessing on the input dataframe.
@@ -184,6 +186,7 @@ class PreProcessor:
         Args:
             df: Input dataframe to preprocess.
             verbose: Whether to print progress information during preprocessing.
+            region_col: Column name for the region identifier.
 
         Returns:
             A tuple containing:
@@ -193,6 +196,7 @@ class PreProcessor:
         new_df, new_dimensions = self._reduce_dimensions(
             df,
             self.config.original_dimensions,
+            region_col=region_col,
             verbose=verbose,
         )
         return new_df, new_dimensions
