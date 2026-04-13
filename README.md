@@ -193,6 +193,12 @@ Users could finetune diffusion models on your own embedding&dataset based on our
 Latent Diffusion's model weights for arbitrary inpainting task on CODEX intestine dataset is here:
 https://huggingface.co/southvines/MORPHE_Arbitrary_Inpainting
 
+Latent Diffusion's model weights for outpainting task on CODEX intestine dataset is here:
+https://huggingface.co/southvines/MORPHE_Outpainting
+
+Latent Diffusion's model weights for 3D imputation task on CODEX intestine dataset is here:
+https://huggingface.co/southvines/MORPHE_3DImputation
+
 Pixel Diffusion's  model weights on CODEX intestine dataset is here:
 https://huggingface.co/southvines/MORPHE_Pixel_Diffusion
 
