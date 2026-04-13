@@ -187,6 +187,17 @@ MERFISH whole mouse brain atlas: https://cellxgene.cziscience.com/collections/0c
 For Additional Inpainting task test:
 MERFISH mouse cortex dataset: https://doi.org/10.35077/g.21
 
+## Model Weights
+Users could finetune diffusion models on your own embedding&dataset based on our model weights
+
+Latent Diffusion's model weights for arbitrary inpainting task on CODEX intestine dataset is here:
+https://huggingface.co/southvines/MORPHE_Arbitrary_Inpainting
+
+Pixel Diffusion's  model weights on CODEX intestine dataset is here:
+https://huggingface.co/southvines/MORPHE_Pixel_Diffusion
+
+
+
 ## Expected Time Cost
 For setting environment:
 With Google Colab-A100 GPU, setting up all dependencies 
