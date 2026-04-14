@@ -154,8 +154,8 @@ Input: Raw Latent feature (".pt" files, shape: 4×64×64)
 
 Refine the output from Latent Diffusion Generator (for all the usecases).
 
-1. `Pixel_Diffusion_Decoder/Dataset_Construct_for_Decoder.ipynb` for constructing the dataset for the refining diffusion model. (Note that you need put some ".png" files (shape: 3×512×512) in the "root_dir" for pixel_diffusion to learn reconstructing high-resolution images from latent feature. This notebook will construct a dataset which contains latent feature(.pt)-original images(.png) pairs)
-2. `Pixel_Diffusion_Decoder/train_decoder.py` - Train (use dataset from 'Dataset_Construct_for_Decoder' )
+1. `Pixel_Diffusion_Decoder/Dataset_Construct_for_Decoder.ipynb` for constructing the dataset for the refining diffusion model. (Note that you need put some ".png" files (shape: 3×512×512) in the "root_dir" for pixel_diffusion to learn reconstructing high-resolution images from latent feature. This notebook will construct a dataset which contains latent feature(.pt)-original image(.png) pairs)
+2. `Pixel_Diffusion_Decoder/train_decoder.py` - Train (use dataset from 'Dataset_Construct_for_Decoder', the model will learn to reconsturct latent feature back to images based on latent-image pairs)
 3. `Pixel_Diffusion_Decoder/Infer_Decoder.ipynb` - Inference (use the generated latent feature from your task's output in step 3)
 
 Ouput: High-Resolution Images (".png" files, shape: 3×512×512)
