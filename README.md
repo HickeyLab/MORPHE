@@ -117,9 +117,11 @@ Input: Processed spatial omics cell maps.
 
 1. `Embeddings/01_GCN_classifier.ipynb` — Output spatial and marker informed probabilities. Data structure like:
 
-`x	y	region	true_label	pred_label	probs_cell_type_1 probs_cell_type_2 ...... probs_cell_type_N `
+   `x	y	region true_label	pred_label probs_cell_type_1 probs_cell_type_2 ...... probs_cell_type_N `
 
-4. `Embeddings/02_Autoencoder.ipynb` — Compress probabilities to three-channel representation of pixel intensities.
+2. `Embeddings/02_Autoencoder.ipynb` — Compress probabilities to three-channel representation of pixel intensities. Data structure like:
+   
+   `x	y	region R G B `
 
 Output: Embedded image for each cell map.
 
