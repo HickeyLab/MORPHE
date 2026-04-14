@@ -1,6 +1,6 @@
 # MORPHE
 
-#Before everything, you may want to know what you could get from this repo:
+Before getting started, here is what you could get from this repo:
 1. Introduction to our work
 2. All code (including embedding, training, inference and evaluation) used in our work
 3. Model weights for every single task in our work
