@@ -4,7 +4,7 @@ Before getting started, here is what you could get from this repo:
 1. Introduction to our work
 2. All code (including embedding, training, inference and evaluation) used in our work
 3. Model weights for every single task in our work
-4. Links to all datasets used in our work
+4. Links to all public datasets used in our work
 
 ## Overview
 *MORPHE: Bridging Image Generation and Spatial Omics
