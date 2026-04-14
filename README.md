@@ -113,7 +113,8 @@ Output: Resolution reduced spatial omics cell maps.
 
 ### 2. Embedding Pipeline
 
-Input: Processed spatial omics cell maps.
+Input: Processed spatial omics cell maps. Data structure like:
+   `x	y	region true_label	marker_1 marker_2 ...... marker_N`
 
 1. `Embeddings/01_GCN_classifier.ipynb` — Output spatial and marker informed probabilities. Data structure like:
 
