@@ -123,7 +123,7 @@ Input: Processed spatial omics cell maps.
    
    `x	y	region R G B `
 
-Output: Embedded image for each cell map.
+Output: Group by region, then could plot/save embedded images for latent diffusion trainging.
 
 ### 3. Latent Diffusion Generator
 
