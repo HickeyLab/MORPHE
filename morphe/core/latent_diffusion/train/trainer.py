@@ -73,20 +73,8 @@ class LatentDiffusionTrainer:
         self._prepare_with_accelerator()
         
     def encode_with_vae(self, x: torch.Tensor) -> torch.Tensor:
-        """
-        Encode image tensors with the pretrained VAE using the VAE's runtime
-        device/dtype, then apply the latent scaling factor.
-        """
-        vae = self.accelerator.unwrap_model(self.vae)
-        vae_param = next(vae.parameters())
-
-        x = x.to(
-            device=vae_param.device,
-            dtype=vae_param.dtype,
-            non_blocking=True,
-        ).contiguous()
-
-        latents = vae.encode(x).latent_dist.sample()  # type: ignore
+        x = x.to(self.accelerator.device)
+        latents = self.vae.encode(x).latent_dist.sample()
         return latents * self.scaling_factor
 
     def _set_seed(self) -> None:
