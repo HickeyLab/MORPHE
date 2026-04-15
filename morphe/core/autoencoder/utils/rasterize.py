@@ -8,10 +8,21 @@ import numpy as np
 import pandas as pd
 
 
+from pathlib import Path
+import os
+import random
+
+import cv2
+import numpy as np
+import pandas as pd
+
+
 def rasterize_rgb_regions(
     result_df: pd.DataFrame,
     save_dir: str | Path,
     *,
+    val_ratio: float = 0.2,
+    seed: int = 42,
     region_col: str = "unique_region",
     x_col: str = "x",
     y_col: str = "y",
@@ -22,51 +33,59 @@ def rasterize_rgb_regions(
     filename_prefix: str = "region",
 ) -> None:
     """
-    Rasterize per-region RGB data from a dataframe into image files.
+    Rasterize per-region RGB data into train/val image folders.
 
-    This function groups rows in ``result_df`` by a region identifier and
-    generates one RGB image per region. Each row represents a single pixel
-    location with associated RGB values. Pixels are placed into an
-    ``image_size x image_size`` canvas, with unspecified pixels initialized
-    to white.
+    Each unique region is assigned entirely to either the train or validation
+    split, then rasterized into a PNG image.
 
-    Notes:
-        - Coordinates are rounded to the nearest integer pixel location.
-        - RGB values are written in OpenCV BGR order when saving.
-        - Pixels falling outside the image bounds are ignored.
+    Output structure:
+        save_dir/
+            train/
+                region_0.png
+                region_1.png
+                ...
+            val/
+                region_0.png
+                region_1.png
+                ...
 
     Args:
-        result_df: DataFrame containing at minimum:
-            - a region identifier column,
-            - x/y coordinate columns,
-            - RGB value columns.
-        save_dir: Directory where output images will be saved. Created if it
-            does not exist.
-        region_col: Column name identifying regions. Each unique value produces
-            a separate output image.
-        x_col: Column name for x-coordinates (horizontal axis).
-        y_col: Column name for y-coordinates (vertical axis).
-        r_col: Column name for red channel values.
-        g_col: Column name for green channel values.
-        b_col: Column name for blue channel values.
-        image_size: Height and width (in pixels) of the output square images.
-        filename_prefix: Prefix used when naming output files. Files are saved
-            as ``{filename_prefix}_{i}.png``.
+        result_df: DataFrame containing region IDs, coordinates, and RGB values.
+        save_dir: Root output directory.
+        val_ratio: Fraction of regions to place in validation split.
+        seed: Random seed for reproducible region splitting.
+        region_col: Column name identifying regions.
+        x_col: Column name for x-coordinates.
+        y_col: Column name for y-coordinates.
+        r_col: Column name for red values.
+        g_col: Column name for green values.
+        b_col: Column name for blue values.
+        image_size: Output image height/width.
+        filename_prefix: Prefix for saved image filenames.
 
     Returns:
         None. Images are written to disk.
-
-    Raises:
-        KeyError: If required columns are missing from ``result_df``.
     """
-
     save_dir = Path(save_dir)
-    save_dir.mkdir(parents=True, exist_ok=True)
+    train_dir = save_dir / "train"
+    val_dir = save_dir / "val"
+    train_dir.mkdir(parents=True, exist_ok=True)
+    val_dir.mkdir(parents=True, exist_ok=True)
 
-    all_regions = result_df[region_col].unique()
-    cnt = 0
+    all_regions = list(result_df[region_col].unique())
+    rng = random.Random(seed)
+    rng.shuffle(all_regions)
+
+    n_val = int(len(all_regions) * val_ratio)
+    val_regions = set(all_regions[:n_val])
+    train_regions = set(all_regions[n_val:])
+
+    train_cnt = 0
+    val_cnt = 0
+
     for reg in all_regions:
         subset = result_df[result_df[region_col] == reg]
+
         xs = subset[x_col].values
         ys = subset[y_col].values
         Rs = subset[r_col].values
@@ -83,6 +102,11 @@ def rasterize_rgb_regions(
                 img[y_int, x_int, 1] = Gs[i]
                 img[y_int, x_int, 2] = Rs[i]
 
-        save_path = os.path.join(save_dir, f"{filename_prefix}_{cnt}.png")
-        cv2.imwrite(save_path, img)
-        cnt += 1
+        if reg in train_regions:
+            save_path = train_dir / f"{filename_prefix}_{train_cnt}.png"
+            train_cnt += 1
+        else:
+            save_path = val_dir / f"{filename_prefix}_{val_cnt}.png"
+            val_cnt += 1
+
+        cv2.imwrite(str(save_path), img)

@@ -231,7 +231,7 @@ class AutoencoderInferencer:
         if rgb.ndim != 3 or rgb.shape[0] != 3:
             raise ValueError(f"rgb must have shape (3, h, w), got {tuple(rgb.shape)}.")
 
-    def encode_to_rgb(
+    def _encode_to_rgb(
         self,
         emb_matrix: torch.Tensor | np.ndarray,
     ) -> torch.Tensor:
@@ -266,7 +266,7 @@ class AutoencoderInferencer:
 
         return rgb_3d.cpu()
 
-    def encode_to_rgb_df(
+    def _encode_to_rgb_df(
         self,
         df: pd.DataFrame,
         *,
@@ -301,7 +301,7 @@ class AutoencoderInferencer:
         emb_matrix = df.loc[:, self.artifact.input_cols].to_numpy(
             dtype=np.float32, copy=True
         )
-        rgb_3d = self.encode_to_rgb(emb_matrix)
+        rgb_3d = self._encode_to_rgb(emb_matrix)
 
         out = df.copy()
         out[r_col] = rgb_3d[:, 0].numpy()
@@ -396,10 +396,17 @@ class AutoencoderInferencer:
         pred = pred.reshape(1, h, w)
         return pred
 
+    #TODO: MAKE THIS BETTER
     def add_rgb_and_rasterize_per_region(
         self,
         result_df: pd.DataFrame,
         save_dir: str | Path,
+        val_ratio: float = 0.2,
+        image_size: int = 1024,
+        file_name_prefix: str = "region",
+        seed: int = 42,
+        x_col: str = "x",
+        y_col: str = "y",
         r_col: str = "R",
         g_col: str = "G",
         b_col: str = "B",
@@ -417,13 +424,30 @@ class AutoencoderInferencer:
             A copy of the input dataframe with added RGB columns.
         """
         save_dir = Path(save_dir)
-        result_df = self.encode_to_rgb_df(
+        
+        # TODO: ADD SEED IF NEEDED
+        # seed = self.artifact.seed if self.artifact.seed is not None else seed
+        
+        result_df = self._encode_to_rgb_df(
             df=result_df,
             r_col=r_col,
             g_col=g_col,
             b_col=b_col,
         )
 
-        rasterize_rgb_regions(result_df, save_dir)
+        rasterize_rgb_regions(
+            result_df=result_df, 
+            save_dir=save_dir,
+            val_ratio=val_ratio,
+            seed=seed,
+            region_col=region_col,
+            x_col=x_col,
+            y_col=y_col,
+            r_col=r_col,
+            g_col=g_col,
+            b_col=b_col,
+            image_size=image_size,
+            filename_prefix=file_name_prefix,
+        )
 
         return result_df
