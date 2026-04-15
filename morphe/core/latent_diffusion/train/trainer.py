@@ -86,7 +86,7 @@ class LatentDiffusionTrainer:
             non_blocking=True,
         ).contiguous()
 
-        latents = self.vae.encode(x).latent_dist.sample()  # type: ignore
+        latents = vae.encode(x).latent_dist.sample()  # type: ignore
         return latents * self.scaling_factor
 
     def _set_seed(self) -> None:

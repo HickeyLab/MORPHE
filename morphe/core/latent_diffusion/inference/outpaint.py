@@ -502,7 +502,7 @@ class OutpaintInferencer(BaseLatentInferencer):
         torch.save(latent.detach().cpu(), latent_path)
         Image.fromarray(preview.astype(np.uint8)).save(image_path)
 
-    def _run_one_from_config(self, cfg: OutpaintRunConfig) -> torch.Tensor:
+    def run_one_from_config(self, cfg: OutpaintRunConfig) -> torch.Tensor:
         """
         Run outpainting inference for a single input image configuration.
 
@@ -694,7 +694,7 @@ class OutpaintInferencer(BaseLatentInferencer):
             plot_title=plot_title,
             plot_fig_size=plot_fig_size,
         )
-        return self._run_one_from_config(cfg)
+        return self.run_one_from_config(cfg)
 
 
     def run(
@@ -769,6 +769,6 @@ class OutpaintInferencer(BaseLatentInferencer):
                 input_dir=file_path,
                 save_name=str(Path(cfg.save_name) / file_path.stem),
             )
-            results.append(self._run_one_from_config(file_cfg))
+            results.append(self.run_one_from_config(file_cfg))
 
         return results
