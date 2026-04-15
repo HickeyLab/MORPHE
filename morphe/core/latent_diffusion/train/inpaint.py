@@ -14,6 +14,7 @@ from ..data.builders import build_inpaint_dataset
 from .base import LatentTrainTask
 from .config import LatentTrainerConfig
 from ....utils import get_config_attr
+
 if TYPE_CHECKING:
     from .trainer import LatentDiffusionTrainer
 
@@ -38,13 +39,13 @@ class InpaintTrainTask(LatentTrainTask):
     masks_per_image_train: int = 2
     masks_per_image_val: int = 5
     img_size: int = 512
-    
+
     @property
     def inference_mode(self) -> InferenceMode:
         """Returns inference mode of this train strategy."""
         return InferenceMode.INPAINTING
-    
-    def build_architecture_spec(self, cfg: LatentTrainerConfig,) -> LatentArchitectureSpec:
+
+    def build_architecture_spec(self, cfg: LatentTrainerConfig) -> LatentArchitectureSpec:
         """
         Construct the architecture specification used to build model components.
 
@@ -70,7 +71,7 @@ class InpaintTrainTask(LatentTrainTask):
             coord_encoder_kwargs=cfg.coord_encoder_kwargs,
             bbox_encoder_kwargs=None,
         )
-    
+
     def build_dataset(
         self,
         root_dir: Path,
@@ -93,7 +94,7 @@ class InpaintTrainTask(LatentTrainTask):
             root_dir=root_dir,
             masks_per_image_train=self.masks_per_image_train,
             masks_per_image_val=self.masks_per_image_val,
-            img_size=self.img_size
+            img_size=self.img_size,
         )
 
     def train_step(
@@ -117,13 +118,13 @@ class InpaintTrainTask(LatentTrainTask):
 
         Returns:
             Scalar loss tensor for the batch.
-        
+
         Raises:
             ValueError: If required coordinate encoder is missing.
         """
         if not trainer.coord_encoder:
             raise ValueError("Coord encoder is required for inpainting training.")
-        
+
         masked_imgs, target_imgs, mask = batch
 
         device = trainer.accelerator.device
@@ -133,8 +134,7 @@ class InpaintTrainTask(LatentTrainTask):
 
         # Encode target latents
         with torch.no_grad():
-            target_latents = trainer.vae.encode(target_imgs).latent_dist.sample() # type: ignore
-            target_latents = target_latents * trainer.scaling_factor
+            target_latents = trainer.encode_with_vae(target_imgs)
 
         B, C, lh, lw = target_latents.shape
 
@@ -144,8 +144,11 @@ class InpaintTrainTask(LatentTrainTask):
 
         # Diffusion forward
         noise = torch.randn_like(target_latents)
-        
-        num_train_timesteps = get_config_attr(trainer.noise_scheduler.config, "num_train_timesteps")
+
+        num_train_timesteps = get_config_attr(
+            trainer.noise_scheduler.config,
+            "num_train_timesteps",
+        )
         timesteps = torch.randint(
             0,
             num_train_timesteps,
@@ -156,15 +159,14 @@ class InpaintTrainTask(LatentTrainTask):
         noisy_latents = trainer.noise_scheduler.add_noise(
             target_latents * latent_mask,
             noise * latent_mask,
-            timesteps, # type: ignore
+            timesteps,  # type: ignore
         )
 
         noisy_latents = target_latents * (1 - latent_mask) + noisy_latents
 
         # Condition encoding
         with torch.no_grad():
-            masked_latents = trainer.vae.encode(masked_imgs).latent_dist.sample() # type: ignore
-            masked_latents = masked_latents * trainer.scaling_factor
+            masked_latents = trainer.encode_with_vae(masked_imgs)
 
         cond_tokens = trainer.cond_encoder(masked_latents)
         coord_tokens = trainer.coord_encoder(mask)

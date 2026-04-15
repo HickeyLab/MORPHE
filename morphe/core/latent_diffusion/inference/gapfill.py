@@ -256,8 +256,7 @@ class GapfillInferencer(BaseLatentInferencer):
             A latent tensor of shape ``(1, C, H_latent, W_latent)``.
         """
         with torch.no_grad():
-            latent = self.vae.encode(image_tensor).latent_dist.sample()  # type: ignore
-            latent = latent * self.scaling_factor
+            latent = self.encode_with_vae(image_tensor)
 
         return latent
 

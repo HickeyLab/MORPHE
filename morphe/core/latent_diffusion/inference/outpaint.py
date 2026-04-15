@@ -531,8 +531,7 @@ class OutpaintInferencer(BaseLatentInferencer):
                 masked_image = current_image * (1 - image_mask)
 
                 with torch.no_grad():
-                    masked_latent = self.vae.encode(masked_image).latent_dist.sample()  # type: ignore[attr-defined]
-                    masked_latent = masked_latent * self.scaling_factor
+                    masked_latent = self.encode_with_vae(masked_image)
             else:
                 if current_latent is None:
                     raise RuntimeError(

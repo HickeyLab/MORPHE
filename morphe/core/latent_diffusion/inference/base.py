@@ -64,3 +64,13 @@ class BaseLatentInferencer(ABC, Generic[RunConfigT]):
     def _run_one_from_config(self, cfg: RunConfigT) -> torch.Tensor:
         """Run inference from a validated task-specific config."""
         raise NotImplementedError
+    
+    def encode_with_vae(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        Encode image tensors with the pretrained VAE using the VAE's runtime
+        device/dtype, then apply the latent scaling factor.
+        """
+        vae_dtype = next(self.vae.parameters()).dtype
+        x = x.to(device=self.device, dtype=vae_dtype)
+        latents = self.vae.encode(x).latent_dist.sample()  # type: ignore
+        return latents * self.scaling_factor

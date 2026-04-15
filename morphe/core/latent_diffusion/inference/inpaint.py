@@ -307,7 +307,7 @@ class InpaintInferencer(BaseLatentInferencer):
         mask = self._load_mask(cfg.mask_dir)
 
         with torch.no_grad():
-            latent = self.vae.encode(image).latent_dist.sample() * self.scaling_factor  # type: ignore[attr-defined]
+            latent = self.encode_with_vae(image)
 
         _, channels, latent_h, latent_w = latent.shape
 

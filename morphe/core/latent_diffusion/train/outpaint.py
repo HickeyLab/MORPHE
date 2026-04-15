@@ -165,8 +165,7 @@ class OutpaintTrainTask(LatentTrainTask):
 
         # encode target
         with torch.no_grad():
-            target_lat = trainer.vae.encode(target_img).latent_dist.sample() # type: ignore
-            target_lat = target_lat * trainer.scaling_factor
+            target_lat = trainer.encode_with_vae(target_img)
 
         # create mask
         mask = self._create_latent_mask(bbox, target_lat.shape, device)
@@ -191,8 +190,7 @@ class OutpaintTrainTask(LatentTrainTask):
 
         # encode masked image
         with torch.no_grad():
-            masked_lat = trainer.vae.encode(masked_img).latent_dist.sample() # type: ignore
-            masked_lat = masked_lat * trainer.scaling_factor
+            masked_lat = trainer.encode_with_vae(masked_img)
 
         cond_bbox = trainer.bbox_encoder(bbox)
 

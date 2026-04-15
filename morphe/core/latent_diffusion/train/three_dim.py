@@ -126,9 +126,9 @@ class ThreeDimImputationTrainTask(LatentTrainTask):
 
         # encode latents (no grad)
         with torch.no_grad():
-            latent_prev = trainer.vae.encode(img_prev).latent_dist.sample() * trainer.scaling_factor # type: ignore
-            latent_next = trainer.vae.encode(img_next).latent_dist.sample() * trainer.scaling_factor # type: ignore
-            latent_mid  = trainer.vae.encode(img_mid).latent_dist.sample() * trainer.scaling_factor # type: ignore
+            latent_prev = trainer.encode_with_vae(img_prev)
+            latent_next = trainer.encode_with_vae(img_next)
+            latent_mid = trainer.encode_with_vae(img_mid)
 
         # noise + timesteps
         noise = torch.randn_like(latent_prev)
@@ -141,7 +141,7 @@ class ThreeDimImputationTrainTask(LatentTrainTask):
             dtype=torch.long
         )
 
-        noisy_latents = trainer.noise_scheduler.add_noise(latent_mid, noise, timesteps) # type: ignore
+        noisy_latents = trainer.noise_scheduler.add_noise(latent_mid, noise, timesteps)  # type: ignore
 
         wp = wp.view(-1, 1, 1, 1)
         wn = wn.view(-1, 1, 1, 1)
@@ -151,26 +151,3 @@ class ThreeDimImputationTrainTask(LatentTrainTask):
 
         loss = F.mse_loss(pred, latent_mid)
         return loss
-
-    def validate_step(self, trainer: LatentDiffusionTrainer) -> float:
-        """
-        Run validation over the entire validation dataset.
-
-        Reuses the training step (without gradients) to compute
-        average reconstruction loss.
-
-        Args:
-            trainer: DiffusionTrainer containing validation loader and models.
-
-        Returns:
-            Mean validation loss across all batches.
-        """
-        trainer.unet.eval()
-        tot = 0
-        cnt = 0
-        with torch.no_grad():
-            for batch in trainer.val_loader:
-                loss = self.train_step(trainer, batch)
-                tot += loss.item()
-                cnt += 1
-        return tot / max(cnt, 1)

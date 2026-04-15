@@ -226,11 +226,8 @@ class ThreeDimImputationInferencer(BaseLatentInferencer):
         img_prev = self._load_image_tensor(cfg.prev_img_path)
         img_next = self._load_image_tensor(cfg.next_img_path)
 
-        latent_prev = self.vae.encode(img_prev).latent_dist.sample()  # type: ignore[attr-defined]
-        latent_next = self.vae.encode(img_next).latent_dist.sample()  # type: ignore[attr-defined]
-
-        latent_prev = latent_prev * self.scaling_factor
-        latent_next = latent_next * self.scaling_factor
+        latent_prev = self.encode_with_vae(img_prev)
+        latent_next = self.encode_with_vae(img_next)
 
         w_prev = torch.tensor(cfg.w_prev, device=self.device, dtype=latent_prev.dtype)
         w_next = torch.tensor(cfg.w_next, device=self.device, dtype=latent_next.dtype)
