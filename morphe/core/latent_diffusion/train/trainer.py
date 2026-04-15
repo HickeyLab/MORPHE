@@ -77,8 +77,15 @@ class LatentDiffusionTrainer:
         Encode image tensors with the pretrained VAE using the VAE's runtime
         device/dtype, then apply the latent scaling factor.
         """
-        vae_dtype = next(self.vae.parameters()).dtype
-        x = x.to(device=self.device, dtype=vae_dtype)
+        vae = self.accelerator.unwrap_model(self.vae)
+        vae_param = next(vae.parameters())
+
+        x = x.to(
+            device=vae_param.device,
+            dtype=vae_param.dtype,
+            non_blocking=True,
+        ).contiguous()
+
         latents = self.vae.encode(x).latent_dist.sample()  # type: ignore
         return latents * self.scaling_factor
 
