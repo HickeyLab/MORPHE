@@ -29,7 +29,7 @@ def rasterize_rgb_regions(
     r_col: str = "R",
     g_col: str = "G",
     b_col: str = "B",
-    image_size: int = 1024,
+    image_size: int = 512,
     filename_prefix: str = "region",
 ) -> None:
     """

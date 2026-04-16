@@ -402,7 +402,7 @@ class AutoencoderInferencer:
         result_df: pd.DataFrame,
         save_dir: str | Path,
         val_ratio: float = 0.2,
-        image_size: int = 1024,
+        image_size: int = 512,
         file_name_prefix: str = "region",
         seed: int = 42,
         x_col: str = "x",
