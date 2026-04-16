@@ -76,7 +76,7 @@ def rasterize_rgb_regions(
     rng = random.Random(seed)
     rng.shuffle(all_regions)
 
-    n_val = int(len(all_regions) * val_ratio)
+    n_val = max(1, int(len(all_regions) * val_ratio))
     val_regions = set(all_regions[:n_val])
     train_regions = set(all_regions[n_val:])
 
