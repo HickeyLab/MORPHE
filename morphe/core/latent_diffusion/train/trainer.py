@@ -239,8 +239,7 @@ class LatentDiffusionTrainer:
                 self.accelerator.backward(loss)
 
                 if self.accelerator.sync_gradients and self.cfg.grad_clip is not None:
-                    params = [p for group in self.optimizer.param_groups for p in group["params"]]
-                    self.accelerator.clip_grad_norm_(params, self.cfg.grad_clip)
+                    self.accelerator.clip_grad_norm_(self.unet.parameters(), self.cfg.grad_clip)
 
                 self.optimizer.step()
                 self.optimizer.zero_grad(set_to_none=True)
