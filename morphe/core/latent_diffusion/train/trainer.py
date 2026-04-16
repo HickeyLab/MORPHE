@@ -69,8 +69,8 @@ class LatentDiffusionTrainer:
 
         self._build_components()
         self._build_dataloaders()
-        self._build_optimizer()
         self._prepare_with_accelerator()
+        self._build_optimizer()
         
     def encode_with_vae(self, x: torch.Tensor) -> torch.Tensor:
         vae_dtype = next(self.vae.parameters()).dtype
@@ -155,7 +155,9 @@ class LatentDiffusionTrainer:
         if self.bbox_encoder is not None:
             params.extend(self.bbox_encoder.parameters())
 
-        self.optimizer = torch.optim.AdamW(params, lr=self.cfg.lr)
+        self.optimizer = self.accelerator.prepare(
+            torch.optim.AdamW(params, lr=self.cfg.lr)
+        )
 
     def _prepare_with_accelerator(self) -> None:
         """
@@ -187,12 +189,11 @@ class LatentDiffusionTrainer:
             *modules,
             self.train_loader,
             self.val_loader,
-            self.optimizer,
         )
 
         num_modules = len(modules)
         prepared_modules = prepared[:num_modules]
-        self.train_loader, self.val_loader, self.optimizer = prepared[num_modules:]
+        self.train_loader, self.val_loader = prepared[num_modules:]
 
         idx = 0
         self.vae = prepared_modules[idx]
@@ -238,7 +239,7 @@ class LatentDiffusionTrainer:
                 self.accelerator.backward(loss)
 
                 if self.accelerator.sync_gradients and self.cfg.grad_clip is not None:
-                    params = self.optimizer.param_groups[0]["params"]
+                    params = [p for group in self.optimizer.param_groups for p in group["params"]]
                     self.accelerator.clip_grad_norm_(params, self.cfg.grad_clip)
 
                 self.optimizer.step()
