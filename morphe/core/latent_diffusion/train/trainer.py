@@ -66,6 +66,7 @@ class LatentDiffusionTrainer:
         self.accelerator = Accelerator(mixed_precision=self.cfg.mixed_precision)
 
         self.arch_spec = self.train_task.build_architecture_spec(cfg=self.cfg)
+        self.dtype = torch.float32
 
         self._build_components()
         self._build_dataloaders()
