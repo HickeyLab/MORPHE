@@ -178,10 +178,6 @@ Output: 1×512×512 '.pt' files, each pixel is annotated with a type of cell.
 - Cell Type Distribution Score  
 
 #### Optional 
-Alternative
-
-- `Alternative/MLP_classifier.ipynb` - Alternative classifier to replace GCN when data is sparse/doesn't present well-orgnaized struture.
-
 Fine-tune Existing Image Generative Models (FluxFill and StableDiffusion2):
 
 - `Finetune/Fluxfill/Train_Fluxfill.py`
