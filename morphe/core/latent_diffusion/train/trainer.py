@@ -47,7 +47,6 @@ class LatentDiffusionTrainer:
         train_task: LatentTrainTask,
         cfg: LatentTrainerConfig,
         device: torch.device | str | None = None,
-        dtype: torch.dtype | None = None,
         seed: int | None = None,
     ) -> None:
         self.root_dir = Path(root_dir)
@@ -56,7 +55,6 @@ class LatentDiffusionTrainer:
         self.seed = seed
 
         self.device = resolve_device(device)
-        self.dtype = resolve_dtype(self.device, dtype)
 
         self._set_seed()
 
@@ -66,7 +64,6 @@ class LatentDiffusionTrainer:
         self.accelerator = Accelerator(mixed_precision=self.cfg.mixed_precision)
 
         self.arch_spec = self.train_task.build_architecture_spec(cfg=self.cfg)
-        self.dtype = torch.float32
 
         self._build_components()
         self._build_dataloaders()
@@ -110,7 +107,7 @@ class LatentDiffusionTrainer:
             self.noise_scheduler,
         ) = self.arch_spec.build_components(
             device=self.device,
-            dtype=self.dtype,
+            dtype=torch.float32,
         )
 
         self.vae.requires_grad_(False)
@@ -342,7 +339,7 @@ class LatentDiffusionTrainer:
         if verbose:
             print(
                 "[DiffusionTrainer] Starting training "
-                f"(device={self.device}, dtype={self.dtype}, seed={self.seed}, "
+                f"(device={self.device}, seed={self.seed}, "
                 f"mixed_precision={self.cfg.mixed_precision})."
             )
             if self.seed is not None:
