@@ -62,8 +62,6 @@ https://github.com/user-attachments/assets/90db14a2-d6b0-4343-8a28-93e19e13c685
 MORPHE/
 │
 ├── Assets/                         
-├── Alternatives/
-│   └── MLP_classifier.ipynb                # MLP Classifier, an alternative method for GCN Classifier
 ├── Embeddings/                             # GCNN Classifier & Autoencoder
 │   ├── 01_GCN_classifier.ipynb
 │   ├── 02_Autoencoder.ipynb
