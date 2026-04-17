@@ -199,16 +199,16 @@ MERFISH mouse cortex dataset: https://doi.org/10.35077/g.21
 Users could finetune diffusion models on your own embedding&dataset based on our model weights
 
 Latent Diffusion's model weights for arbitrary inpainting task on CODEX intestine dataset is here:
-https://huggingface.co/southvines/MORPHE_Arbitrary_Inpainting
+https://huggingface.co/Hickey-Lab/MORPHE_CODEX_Arbitrary_Inpainting
 
 Latent Diffusion's model weights for outpainting task on CODEX intestine dataset is here:
-https://huggingface.co/southvines/MORPHE_Outpainting
+https://huggingface.co/Hickey-Lab/MORPHE_CODEX_Outpainting
 
 Latent Diffusion's model weights for 3D imputation task on CODEX intestine dataset is here:
-https://huggingface.co/southvines/MORPHE_3DImputation
+https://huggingface.co/Hickey-Lab/MORPHE_Mousebrain_3DImputation
 
 Pixel Diffusion's  model weights on CODEX intestine dataset is here:
-https://huggingface.co/southvines/MORPHE_Pixel_Diffusion
+https://huggingface.co/Hickey-Lab/MORPHE_CODEX_PixelDiffusion
 
 
 
