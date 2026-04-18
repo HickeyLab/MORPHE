@@ -248,12 +248,24 @@ class LatentDiffusionTrainer:
 
         return float(np.mean(losses)) if losses else float("nan")
 
+    @staticmethod
+    def _cpu_state_dict(module: torch.nn.Module) -> dict[str, torch.Tensor]:
+        """
+        Return a module's state dict with every tensor moved to CPU.
+
+        The artifact is a portable, serializable object; it should never hold
+        GPU-resident tensors because that pins GPU memory for as long as the
+        artifact is alive and breaks loading on machines without the same GPU.
+        """
+        return {key: value.detach().cpu() for key, value in module.state_dict().items()}
+
     def _build_artifact(self) -> LatentDiffusionArtifact:
         """
         Build an in-memory artifact from the trainer's current model states.
 
         Models are unwrapped before serialization so saved weights come from the
-        underlying modules rather than accelerator wrappers.
+        underlying modules rather than accelerator wrappers. All parameter
+        tensors are copied to CPU so the artifact does not pin GPU memory.
         """
         unet: UNet512 = self.accelerator.unwrap_model(self.unet)
         cond_encoder: CondEncoder | CondEncoder3D = self.accelerator.unwrap_model(self.cond_encoder)
@@ -261,22 +273,50 @@ class LatentDiffusionTrainer:
         coord_state = None
         if self.coord_encoder is not None:
             coord_encoder: CoordEncoder = self.accelerator.unwrap_model(self.coord_encoder)
-            coord_state = coord_encoder.state_dict()
+            coord_state = self._cpu_state_dict(coord_encoder)
 
         bbox_state = None
         if self.bbox_encoder is not None:
             bbox_encoder: BBoxEncoder = self.accelerator.unwrap_model(self.bbox_encoder)
-            bbox_state = bbox_encoder.state_dict()
+            bbox_state = self._cpu_state_dict(bbox_encoder)
 
         return LatentDiffusionArtifact(
-            unet_state_dict=unet.state_dict(),
-            cond_encoder_state_dict=cond_encoder.state_dict(),
+            unet_state_dict=self._cpu_state_dict(unet),
+            cond_encoder_state_dict=self._cpu_state_dict(cond_encoder),
             coord_encoder_state_dict=coord_state,
             bbox_encoder_state_dict=bbox_state,
             architecture=self.arch_spec,
             inference_mode=self.train_task.inference_mode,
             img_size=getattr(self.train_task, "img_size", None),
         )
+
+    def _release(self) -> None:
+        """
+        Drop GPU-resident training state held on this trainer.
+
+        Called at the end of ``train()`` (including on exception) so the
+        trainer does not pin the UNet, VAE, optimizer, accelerator, and
+        dataloaders on the GPU after training has finished. The artifact
+        returned by ``train()`` already contains CPU copies of the weights,
+        so nothing callers care about is lost.
+
+        After this runs the trainer is effectively spent; do not call
+        ``train()`` again on the same instance.
+        """
+        for attr in (
+            "unet",
+            "vae",
+            "cond_encoder",
+            "coord_encoder",
+            "bbox_encoder",
+            "optimizer",
+            "accelerator",
+            "train_loader",
+            "val_loader",
+            "noise_scheduler",
+        ):
+            if hasattr(self, attr):
+                setattr(self, attr, None)
 
     def _save_artifact(self, artifact: LatentDiffusionArtifact, name: str, verbose: bool) -> Path:
         """
@@ -354,88 +394,91 @@ class LatentDiffusionTrainer:
             print("[DiffusionTrainer] Prepared models, dataloaders, and optimizer with Accelerator.")
             print(f"[DiffusionTrainer] Starting training for {self.cfg.epochs} epochs.")
 
-        best_val = float("inf")
-        patience_cnt = 0
-        patience = getattr(self.train_task, "patience", None)
+        try:
+            best_val = float("inf")
+            patience_cnt = 0
+            patience = getattr(self.train_task, "patience", None)
 
-        best_artifact: LatentDiffusionArtifact | None = None
+            best_artifact: LatentDiffusionArtifact | None = None
 
-        save_path = Path(save_name)
-        best_name = save_path.name
-        best_stem = save_path.stem
-        best_suffix = save_path.suffix or ".pt"
+            save_path = Path(save_name)
+            best_name = save_path.name
+            best_stem = save_path.stem
+            best_suffix = save_path.suffix or ".pt"
 
-        for epoch in range(self.cfg.epochs):
-            train_loss = self._train_one_epoch(epoch=epoch, verbose=verbose)
-            self.train_loss_history.append(train_loss)
+            for epoch in range(self.cfg.epochs):
+                train_loss = self._train_one_epoch(epoch=epoch, verbose=verbose)
+                self.train_loss_history.append(train_loss)
 
-            val_loss = self.train_task.validate_step(trainer=self)
-            self.val_loss_history.append(val_loss)
-            
-            if verbose:
-                self.accelerator.print(
-                    f"Epoch {epoch} -> Train: {train_loss:.6f}  Val: {val_loss:.6f}"
-                )
+                val_loss = self.train_task.validate_step(trainer=self)
+                self.val_loss_history.append(val_loss)
 
-            improved = val_loss < best_val
-            if improved:
-                best_val = val_loss
-                self.accelerator.wait_for_everyone()
-
-                best_artifact = self._build_artifact()
                 if verbose:
-                    print(
-                        f"[DiffusionTrainer] New best validation loss at epoch {epoch}: "
-                        f"{best_val:.6f}."
+                    self.accelerator.print(
+                        f"Epoch {epoch} -> Train: {train_loss:.6f}  Val: {val_loss:.6f}"
                     )
-                if save_best:
-                    self._save_artifact(best_artifact, name=best_name, verbose=verbose)
 
-            if (
-                checkpoint_every_epochs is not None
-                and checkpoint_every_epochs > 0
-                and (epoch + 1) % checkpoint_every_epochs == 0
-            ):
-                checkpoint_artifact = self._build_artifact()
-                checkpoint_name = f"{best_stem}_epoch_{epoch + 1}{best_suffix}"
-                self._save_artifact(checkpoint_artifact, name=checkpoint_name, verbose=verbose)
+                improved = val_loss < best_val
+                if improved:
+                    best_val = val_loss
+                    self.accelerator.wait_for_everyone()
 
-            if patience is not None:
-                patience_cnt = 0 if improved else patience_cnt + 1
-                if patience_cnt >= patience:
-                    self.accelerator.print("Early stopping.")
+                    best_artifact = self._build_artifact()
                     if verbose:
                         print(
-                            f"[DiffusionTrainer] Early stopping triggered at epoch {epoch} "
-                            f"with patience={patience}."
+                            f"[DiffusionTrainer] New best validation loss at epoch {epoch}: "
+                            f"{best_val:.6f}."
                         )
-                    break
+                    if save_best:
+                        self._save_artifact(best_artifact, name=best_name, verbose=verbose)
 
-            if getattr(self.train_task, "decay_enabled", False):
-                every = getattr(self.train_task, "lr_decay_every", None)
-                factor = float(getattr(self.train_task, "lr_decay_factor", 0.5))
-                if every is not None and every > 0 and (epoch + 1) % every == 0:
-                    for group in self.optimizer.param_groups:
-                        group["lr"] *= factor
-                    if verbose:
-                        print(
-                            "[DiffusionTrainer] Decayed learning rate by factor "
-                            f"{factor} at epoch {epoch}."
-                        )
+                if (
+                    checkpoint_every_epochs is not None
+                    and checkpoint_every_epochs > 0
+                    and (epoch + 1) % checkpoint_every_epochs == 0
+                ):
+                    checkpoint_artifact = self._build_artifact()
+                    checkpoint_name = f"{best_stem}_epoch_{epoch + 1}{best_suffix}"
+                    self._save_artifact(checkpoint_artifact, name=checkpoint_name, verbose=verbose)
 
-        if best_artifact is None:
-            best_artifact = self._build_artifact()
+                if patience is not None:
+                    patience_cnt = 0 if improved else patience_cnt + 1
+                    if patience_cnt >= patience:
+                        self.accelerator.print("Early stopping.")
+                        if verbose:
+                            print(
+                                f"[DiffusionTrainer] Early stopping triggered at epoch {epoch} "
+                                f"with patience={patience}."
+                            )
+                        break
 
-        if save_last:
-            last_artifact = self._build_artifact()
-            last_name = f"{best_stem}_last{best_suffix}"
-            self._save_artifact(last_artifact, name=last_name, verbose=verbose)
+                if getattr(self.train_task, "decay_enabled", False):
+                    every = getattr(self.train_task, "lr_decay_every", None)
+                    factor = float(getattr(self.train_task, "lr_decay_factor", 0.5))
+                    if every is not None and every > 0 and (epoch + 1) % every == 0:
+                        for group in self.optimizer.param_groups:
+                            group["lr"] *= factor
+                        if verbose:
+                            print(
+                                "[DiffusionTrainer] Decayed learning rate by factor "
+                                f"{factor} at epoch {epoch}."
+                            )
 
-        if verbose:
-            print("[DiffusionTrainer] Training complete.")
+            if best_artifact is None:
+                best_artifact = self._build_artifact()
 
-        return LatentTrainResult(
-            artifact=best_artifact,
-            train_loss_history=self.train_loss_history,
-            val_loss_history=self.val_loss_history
-        )
+            if save_last:
+                last_artifact = self._build_artifact()
+                last_name = f"{best_stem}_last{best_suffix}"
+                self._save_artifact(last_artifact, name=last_name, verbose=verbose)
+
+            if verbose:
+                print("[DiffusionTrainer] Training complete.")
+
+            return LatentTrainResult(
+                artifact=best_artifact,
+                train_loss_history=self.train_loss_history,
+                val_loss_history=self.val_loss_history
+            )
+        finally:
+            self._release()

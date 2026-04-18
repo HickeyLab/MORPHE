@@ -25,25 +25,31 @@ class PixelDatasetPrecomputer:
     def __init__(
         self,
         *,
-        vae_encoder: VAEEncoder,
         precompute_task: PixelPrecomputeTask,
+        vae_encoder: VAEEncoder | None = None,
         device: str | torch.device | None = None,
         dtype: torch.dtype | None = None,
     ) -> None:
         """
         Initialize the precomputer.
 
+        The VAE encoder is not loaded here. It is built inside `precompute()`
+        and released when that call returns, so a long-lived precomputer
+        instance does not pin GPU memory between uses. A `vae_encoder` may
+        optionally be injected (e.g. for testing); in that case the caller
+        owns its lifetime.
+
         Args:
-            vae_encoder: Encoder used to produce conditioning latents.
             precompute_task: Strategy that defines dataset construction,
                 sample extraction, naming, and metadata generation.
+            vae_encoder: Optional pre-built encoder to use instead of
+                constructing one from `precompute_task.ae_pretrained_path`.
             device: Target compute device. If omitted, CUDA is used when
                 available; otherwise CPU.
         """
         self.device = resolve_device(device)
         self.dtype = resolve_dtype(self.device, dtype)
-        self.vae_encoder = vae_encoder.to(self.device)
-        self.vae_encoder.eval()
+        self._injected_vae_encoder = vae_encoder
         self.precompute_task = precompute_task
 
     @classmethod
@@ -55,10 +61,10 @@ class PixelDatasetPrecomputer:
         dtype: torch.dtype | None = None,
     ) -> PixelDatasetPrecomputer:
         """
-        Build a precomputer from a pretrained VAE checkpoint/path.
+        Build a precomputer configured to load its VAE from the task's
+        pretrained path when `precompute()` is called.
 
         Args:
-            vae_path: Pretrained VAE source path or model identifier.
             precompute_task: Strategy that defines dataset construction,
                 sample extraction, naming, and metadata generation.
             device: Target compute device. If omitted, CUDA is used when
@@ -67,15 +73,9 @@ class PixelDatasetPrecomputer:
         Returns:
             A configured `PixelDatasetPrecomputer`.
         """
-        resolved_device = resolve_device(device)
-        vae_encoder = VAEEncoder(
-            pretrained_path=precompute_task.ae_pretrained_path,
-            device=resolved_device,
-        )
         return cls(
-            vae_encoder=vae_encoder,
             precompute_task=precompute_task,
-            device=resolved_device,
+            device=device,
             dtype=dtype,
         )
 
@@ -121,7 +121,18 @@ class PixelDatasetPrecomputer:
 
         train_ds, val_ds = self.precompute_task.build_dataset(root_dir=root_dir)
 
+        if self._injected_vae_encoder is not None:
+            vae_encoder = self._injected_vae_encoder
+        else:
+            vae_encoder = VAEEncoder(
+                pretrained_path=self.precompute_task.ae_pretrained_path,
+                device=self.device,
+            )
+        vae_encoder = vae_encoder.to(self.device)
+        vae_encoder.eval()
+
         train_index_path = self._precompute_split(
+            vae_encoder=vae_encoder,
             dataset=train_ds,
             split_name="train",
             out_dir=out_dir / "train",
@@ -129,6 +140,7 @@ class PixelDatasetPrecomputer:
             num_workers=num_workers,
         )
         val_index_path = self._precompute_split(
+            vae_encoder=vae_encoder,
             dataset=val_ds,
             split_name="val",
             out_dir=out_dir / "val",
@@ -142,6 +154,7 @@ class PixelDatasetPrecomputer:
     def _precompute_split(
         self,
         *,
+        vae_encoder: VAEEncoder,
         dataset: Dataset,
         split_name: Literal["train", "val"],
         out_dir: Path,
@@ -152,6 +165,7 @@ class PixelDatasetPrecomputer:
         Precompute one dataset split and write its JSONL index file.
 
         Args:
+            vae_encoder: Encoder used for this call, owned by `precompute()`.
             dataset: Dataset for the split being precomputed.
             split_name: Human-readable split name used in filenames and logging.
             out_dir: Directory for the split's output files.
@@ -185,9 +199,9 @@ class PixelDatasetPrecomputer:
 
                 if self.device.type == "cuda":
                     with torch.autocast(device_type="cuda", dtype=self.dtype):
-                        z_cond = self.vae_encoder.encode(encoder_input)
+                        z_cond = vae_encoder.encode(encoder_input)
                 else:
-                    z_cond = self.vae_encoder.encode(encoder_input)
+                    z_cond = vae_encoder.encode(encoder_input)
 
                 batch_size_actual = encoder_input.size(0)
 
