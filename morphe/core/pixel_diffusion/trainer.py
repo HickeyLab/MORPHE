@@ -448,6 +448,9 @@ class PixelDiffusionTrainer:
         chart_left_title: str = "Original",
         chart_right_title: str = "Predicted",
         *,
+        save_best: bool = True,
+        save_dir: str | Path | None = None,
+        save_name: str = "pixel_diffusion_artifact.pt",
         verbose: bool | None = None,
     ) -> PixelDiffusionArtifact:
         """
@@ -562,9 +565,18 @@ class PixelDiffusionTrainer:
                     f"best_global_step={best_global_step})"
                 )
 
-            return self._build_artifact(
+            artifact = self._build_artifact(
                 best_epoch=best_epoch,
                 best_global_step=best_global_step,
             )
+
+            if save_best:
+                out_dir = Path(save_dir) if save_dir is not None else Path(".")
+                out_dir.mkdir(parents=True, exist_ok=True)
+                artifact.save(out_dir / save_name)
+                if verbose:
+                    self.accelerator.print(f"Saved best artifact to {out_dir / save_name}")
+
+            return artifact
         finally:
             self._release()

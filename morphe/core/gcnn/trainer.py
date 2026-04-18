@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import random
 from collections.abc import Sequence
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -178,6 +179,9 @@ class GCNNTrainer:
     def train(
         self,
         *,
+        save_best: bool = True,
+        save_dir: str | Path | None = None,
+        save_name: str = "gcnn_artifact.pt",
         verbose: bool = False,
     ) -> GCNNArtifact:
         """
@@ -247,6 +251,8 @@ class GCNNTrainer:
 
         last_loss = 0.0
         last_acc = 0.0
+        best_loss = float("inf")
+        best_state_dict: dict | None = None
 
         for epoch in range(self.cfg.epochs):
             loss = self._train_one_epoch(model, train_loader, optimizer, self.device)
@@ -254,6 +260,10 @@ class GCNNTrainer:
 
             last_loss = loss
             last_acc = acc
+
+            if loss < best_loss:
+                best_loss = loss
+                best_state_dict = {key: value.cpu() for key, value in model.state_dict().items()}
 
             if verbose:
                 print(
@@ -267,8 +277,8 @@ class GCNNTrainer:
                 f"(final_loss={last_loss:.4f}, final_train_acc={last_acc:.4f})"
             )
 
-        return GCNNArtifact(
-            model_state_dict={key: value.cpu() for key, value in model.state_dict().items()},
+        artifact = GCNNArtifact(
+            model_state_dict=best_state_dict or {key: value.cpu() for key, value in model.state_dict().items()},
             hidden_channels=self.cfg.hidden_channels,
             num_classes=num_classes,
             dropout=float(self.cfg.dropout),
@@ -281,3 +291,12 @@ class GCNNTrainer:
             feature_cols=tuple(self.feature_cols),
             classes_=class_names,
         )
+
+        if save_best:
+            out_dir = Path(save_dir) if save_dir is not None else Path(".")
+            out_dir.mkdir(parents=True, exist_ok=True)
+            artifact.save(out_dir / save_name)
+            if verbose:
+                print(f"Saved best GCNN artifact to {out_dir / save_name}")
+
+        return artifact

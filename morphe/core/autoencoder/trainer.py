@@ -70,8 +70,6 @@ class AutoencoderTrainer:
         self.in_dim = len(self.input_cols)
 
         self.device = resolve_device(device)
-        self.save_dir = Path(self.cfg.save_dir)
-        self.save_dir.mkdir(parents=True, exist_ok=True)
         self.seed = seed
 
         self.emb_matrix = self._df_to_prob_tensor(self.df)
@@ -441,23 +439,15 @@ class AutoencoderTrainer:
             z_max = z.max(dim=0).values.detach().cpu()
         return z_min, z_max
 
-    def _save_best_checkpoint(self, save_dir: Path) -> AutoencoderArtifact:
+    def _build_best_artifact(self) -> AutoencoderArtifact:
         """
-        Build and save an artifact from the current best model state.
-
-        Args:
-            save_dir: Directory in which to save the artifact file.
-
-        Returns:
-            The constructed autoencoder artifact.
+        Build an artifact from the current best model state without saving to disk.
 
         Raises:
             RuntimeError: If called before the model has been initialized.
         """
         if self.model is None:
-            raise RuntimeError("Cannot save artifact before model has been built.")
-
-        save_dir.mkdir(parents=True, exist_ok=True)
+            raise RuntimeError("Cannot build artifact before model has been built.")
 
         z_min, z_max = self._compute_z_min_max(
             self.model,
@@ -465,7 +455,7 @@ class AutoencoderTrainer:
             device=self.device,
         )
 
-        artifact = AutoencoderArtifact(
+        return AutoencoderArtifact(
             state_dict={k: v.detach().cpu() for k, v in self.model.state_dict().items()},
             input_cols=tuple(self.input_cols),
             in_dim=self.in_dim,
@@ -474,12 +464,29 @@ class AutoencoderTrainer:
             z_min=z_min,
             z_max=z_max,
         )
-        artifact.save(save_dir / "autoencoder_artifact.pt")
+
+    def _save_best_checkpoint(self, save_dir: Path, save_name: str) -> AutoencoderArtifact:
+        """
+        Build and save an artifact from the current best model state.
+
+        Args:
+            save_dir: Directory in which to save the artifact file.
+            save_name: Filename for the saved artifact.
+
+        Returns:
+            The constructed autoencoder artifact.
+        """
+        save_dir.mkdir(parents=True, exist_ok=True)
+        artifact = self._build_best_artifact()
+        artifact.save(save_dir / save_name)
         return artifact
 
     def train(
         self,
         *,
+        save_best: bool = True,
+        save_dir: str | Path = "autoencoder_checkpoints",
+        save_name: str = "autoencoder_artifact.pt",
         verbose: bool = False,
     ) -> AutoencoderArtifact:
         """
@@ -549,7 +556,10 @@ class AutoencoderTrainer:
 
             if val_metrics.loss < best_val_loss:
                 best_val_loss = val_metrics.loss
-                best_artifact = self._save_best_checkpoint(self.save_dir)
+                if save_best:
+                    best_artifact = self._save_best_checkpoint(Path(save_dir), save_name)
+                else:
+                    best_artifact = self._build_best_artifact()
                 if verbose:
                     print(f"New best validation loss: {best_val_loss:.4f}")
 

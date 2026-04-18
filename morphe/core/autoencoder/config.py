@@ -2,8 +2,6 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass
-from pathlib import Path
-
 @dataclass(frozen=True, slots=True)
 class AutoencoderTrainerConfig:
     """
@@ -16,8 +14,6 @@ class AutoencoderTrainerConfig:
     - optimization and loss weighting
 
     Data / dataset:
-        save_dir: Directory where model checkpoints and the best artifact are saved.
-        save_best_only: Whether to only keep the best model (based on validation loss).
         val_ratio: Fraction of data reserved for validation (0–1).
         batch_size: Number of samples per training batch.
         num_workers: Number of workers for DataLoader parallelism.
@@ -58,8 +54,6 @@ class AutoencoderTrainerConfig:
             lr=1e-4,
         )
     """
-    save_dir: str | Path = Path("autoencoder_checkpoints")
-    save_best_only: bool = True
     val_ratio: float = 0.1
     batch_size: int = 4096
     num_workers: int = 4
@@ -74,7 +68,6 @@ class AutoencoderTrainerConfig:
     alpha: float = 0.1
     
     def __post_init__(self) -> None:
-        object.__setattr__(self, "save_dir", Path(self.save_dir))
         self.validate()
 
     def validate(self) -> None:
