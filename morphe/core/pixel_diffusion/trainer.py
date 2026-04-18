@@ -191,12 +191,7 @@ class PixelDiffusionTrainer:
         adapter = LatentAdapter(**adapter_kwargs)  # type: ignore[arg-type]
         unet512 = UNet512(**unet_kwargs)
 
-        vae: AutoencoderKL | None = AutoencoderKL.from_pretrained(
-            self.cfg.ae_pretrained,
-            subfolder="vae",
-        ).to(self.device) # type: ignore
-
-        return adapter, unet512, vae
+        return adapter, unet512, None
 
     def _build_optimizer(self) -> torch.optim.AdamW:
         """
@@ -225,36 +220,19 @@ class PixelDiffusionTrainer:
         """
         Prepare models, loaders, and optimizer with Accelerate.
         """
-        if self.vae is not None:
-            (
-                self.adapter,
-                self.unet512,
-                self.train_loader,
-                self.val_loader,
-                self.optimizer,
-                self.vae,
-            ) = self.accelerator.prepare(
-                self.adapter,
-                self.unet512,
-                self.train_loader,
-                self.val_loader,
-                self.optimizer,
-                self.vae,
-            )
-        else:
-            (
-                self.adapter,
-                self.unet512,
-                self.train_loader,
-                self.val_loader,
-                self.optimizer,
-            ) = self.accelerator.prepare(
-                self.adapter,
-                self.unet512,
-                self.train_loader,
-                self.val_loader,
-                self.optimizer,
-            )
+        (
+            self.adapter,
+            self.unet512,
+            self.train_loader,
+            self.val_loader,
+            self.optimizer,
+        ) = self.accelerator.prepare(
+            self.adapter,
+            self.unet512,
+            self.train_loader,
+            self.val_loader,
+            self.optimizer,
+        )
 
     def _validate_indices(self) -> None:
         """
@@ -426,8 +404,8 @@ class PixelDiffusionTrainer:
         unwrapped_unet512 = self.accelerator.unwrap_model(self.unet512)
 
         return PixelDiffusionArtifact(
-            adapter_state_dict=unwrapped_adapter.state_dict(),
-            unet_state_dict=unwrapped_unet512.state_dict(),
+            adapter_state_dict={k: v.detach().cpu() for k, v in unwrapped_adapter.state_dict().items()},
+            unet_state_dict={k: v.detach().cpu() for k, v in unwrapped_unet512.state_dict().items()},
             adapter_kwargs=self.cfg.adapter_kwargs or {},
             unet_kwargs=self.cfg.unet_kwargs or {},
             scheduler_pretrained=self.cfg.scheduler_pretrained,
@@ -442,6 +420,25 @@ class PixelDiffusionTrainer:
             best_epoch=best_epoch,
             best_global_step=best_global_step,
         )
+
+    def _release(self) -> None:
+        """
+        Drop all GPU-resident references so CUDA memory can be reclaimed
+        after training completes.
+        """
+        for attr in (
+            "adapter",
+            "unet512",
+            "vae",
+            "optimizer",
+            "accelerator",
+            "train_loader",
+            "val_loader",
+            "noise_scheduler",
+            "evaluator",
+        ):
+            if hasattr(self, attr):
+                setattr(self, attr, None)
 
     def train(
         self,
@@ -475,6 +472,14 @@ class PixelDiffusionTrainer:
         if verbose is None:
             verbose = self.verbose
 
+        # Load VAE onto GPU only if composition eval is requested.
+        if enable_composition_eval and self.vae is None:
+            self.vae = AutoencoderKL.from_pretrained(
+                self.cfg.ae_pretrained,
+                subfolder="vae",
+            ).to(self.device)  # type: ignore
+            self.evaluator.vae = self.vae
+
         best_val_loss = float("inf")
         epochs_without_improvement = 0
         best_epoch = 0
@@ -488,75 +493,78 @@ class PixelDiffusionTrainer:
                 f"val_batches={len(self.val_loader)})"
             )
 
-        for epoch_idx in range(self.cfg.epochs):
-            train_loss = self._train_one_epoch(epoch_idx, verbose=verbose)
+        try:
+            for epoch_idx in range(self.cfg.epochs):
+                train_loss = self._train_one_epoch(epoch_idx, verbose=verbose)
 
-            val_loss = self.validate(verbose=verbose)
-            self.val_loss_history.append(val_loss)
+                val_loss = self.validate(verbose=verbose)
+                self.val_loss_history.append(val_loss)
+
+                if verbose:
+                    self.accelerator.print(
+                        f"[Epoch {epoch_idx + 1}/{self.cfg.epochs}] "
+                        f"Train={train_loss:.4f}  Val={val_loss:.4f}"
+                    )
+
+                # Visualizations
+                if enable_epoch_visualizations:
+                    self.evaluator.visualize_epoch(
+                        epoch_idx=epoch_idx,
+                        visualization_inference_steps=self.cfg.scheduler_num_inference_steps,
+                        max_batches=epoch_visualization_max_batches,
+                    )
+
+                if enable_composition_eval:
+                    self.evaluator.eval_composition_batch(
+                        epoch_idx=epoch_idx,
+                        visualization_inference_steps=self.cfg.scheduler_num_inference_steps,
+                        chart_left_title=chart_left_title,
+                        chart_right_title=chart_right_title,
+                    )
+
+                # Improvements
+                if val_loss < best_val_loss - 1e-4:
+                    best_val_loss = val_loss
+                    epochs_without_improvement = 0
+                    best_epoch = epoch_idx
+                    best_global_step = self.global_step
+
+                    self.accelerator.wait_for_everyone()
+                    self.accelerator.save_state("ckpt_best")
+
+                    if verbose:
+                        self.accelerator.print(
+                            f"  >> Saved best checkpoint (val={best_val_loss:.4f})"
+                        )
+                else:
+                    epochs_without_improvement += 1
+
+                    if verbose:
+                        self.accelerator.print(
+                            f"  >> No improvement "
+                            f"({epochs_without_improvement}/{self.cfg.patience})"
+                        )
+
+                    if epochs_without_improvement >= self.cfg.patience:
+                        if verbose:
+                            self.accelerator.print("Early stopping triggered.")
+                        break
+
+            self.accelerator.wait_for_everyone()
+            self.accelerator.load_state("ckpt_best")
+            self.accelerator.wait_for_everyone()
 
             if verbose:
                 self.accelerator.print(
-                    f"[Epoch {epoch_idx + 1}/{self.cfg.epochs}] "
-                    f"Train={train_loss:.4f}  Val={val_loss:.4f}"
+                    "Finished Cascade512 training "
+                    f"(best_epoch={best_epoch + 1}, "
+                    f"best_val_loss={best_val_loss:.4f}, "
+                    f"best_global_step={best_global_step})"
                 )
 
-            # Visualizations
-            if enable_epoch_visualizations:
-                self.evaluator.visualize_epoch(
-                    epoch_idx=epoch_idx,
-                    visualization_inference_steps=self.cfg.scheduler_num_inference_steps,
-                    max_batches=epoch_visualization_max_batches,
-                )
-
-            if enable_composition_eval:
-                self.evaluator.eval_composition_batch(
-                    epoch_idx=epoch_idx,
-                    visualization_inference_steps=self.cfg.scheduler_num_inference_steps,
-                    chart_left_title=chart_left_title,
-                    chart_right_title=chart_right_title,
-                )
-
-            # Improvements
-            if val_loss < best_val_loss - 1e-4:
-                best_val_loss = val_loss
-                epochs_without_improvement = 0
-                best_epoch = epoch_idx
-                best_global_step = self.global_step
-
-                self.accelerator.wait_for_everyone()
-                self.accelerator.save_state("ckpt_best")
-
-                if verbose:
-                    self.accelerator.print(
-                        f"  >> Saved best checkpoint (val={best_val_loss:.4f})"
-                    )
-            else:
-                epochs_without_improvement += 1
-
-                if verbose:
-                    self.accelerator.print(
-                        f"  >> No improvement "
-                        f"({epochs_without_improvement}/{self.cfg.patience})"
-                    )
-
-                if epochs_without_improvement >= self.cfg.patience:
-                    if verbose:
-                        self.accelerator.print("Early stopping triggered.")
-                    break
-
-        self.accelerator.wait_for_everyone()
-        self.accelerator.load_state("ckpt_best")
-        self.accelerator.wait_for_everyone()
-
-        if verbose:
-            self.accelerator.print(
-                "Finished Cascade512 training "
-                f"(best_epoch={best_epoch + 1}, "
-                f"best_val_loss={best_val_loss:.4f}, "
-                f"best_global_step={best_global_step})"
+            return self._build_artifact(
+                best_epoch=best_epoch,
+                best_global_step=best_global_step,
             )
-
-        return self._build_artifact(
-            best_epoch=best_epoch,
-            best_global_step=best_global_step,
-        )
+        finally:
+            self._release()
