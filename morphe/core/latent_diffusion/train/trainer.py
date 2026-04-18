@@ -371,10 +371,11 @@ class LatentDiffusionTrainer:
 
             val_loss = self.train_task.validate_step(trainer=self)
             self.val_loss_history.append(val_loss)
-
-            self.accelerator.print(
-                f"Epoch {epoch} -> Train: {train_loss:.6f}  Val: {val_loss:.6f}"
-            )
+            
+            if verbose:
+                self.accelerator.print(
+                    f"Epoch {epoch} -> Train: {train_loss:.6f}  Val: {val_loss:.6f}"
+                )
 
             improved = val_loss < best_val
             if improved:
