@@ -10,6 +10,7 @@ from ..autoencoder.inferencer import AutoencoderInferencer
 from ..latent_diffusion.inference.base import BaseLatentInferencer
 from ..latent_diffusion.inference.gapfill import GapfillInferencer
 from ..latent_diffusion.inference.inpaint import InpaintInferencer
+from ..latent_diffusion.inference.outpaint import OutpaintInferencer
 from ..latent_diffusion.inference.three_dim import ThreeDimImputationInferencer
 from .artifact import MorpheArtifact
 from ..gcnn.artifact import GCNNArtifact
@@ -327,6 +328,64 @@ class MorpheInferencer:
             input_dir=input_dir,
             mask_dir=mask_dir,
             num_steps=num_steps,
+            show_plot=show_plot,
+            plot_title=plot_title,
+            plot_fig_size=plot_fig_size,
+        )
+        return self._decode_latents_to_cell_maps(latents)
+
+    def run_outpaint(
+        self,
+        df: pd.DataFrame,
+        root_dir: str | Path,
+        *,
+        input_dir: str | Path,
+        save_dir: str | Path,
+        save_name: str = "default",
+        num_steps: int = 200,
+        crop_ratio: float = 0.97,
+        iterations: int = 10,
+        direction: str = "right",
+        show_plot: bool = False,
+        plot_title: str | None = None,
+        plot_fig_size: tuple[int, int] = (6, 6),
+    ) -> list[torch.Tensor]:
+        """
+        Run the full MORPHE pipeline for latent outpainting.
+
+        Args:
+            df: Input dataframe containing raw region data.
+            root_dir: Directory for intermediate rasterized outputs.
+            input_dir: Directory containing rasterized inputs for outpainting.
+            save_dir: Directory where outpainting outputs should be saved.
+            save_name: Base name used for saved outputs.
+            num_steps: Number of diffusion denoising steps per iteration.
+            crop_ratio: Fraction of the image to preserve per iteration.
+            iterations: Number of iterative outpainting passes to run.
+            direction: Direction to expand ("right", "left", "up", or "down").
+            show_plot: Whether to display qualitative plots during inference.
+            plot_title: Optional plot title override.
+            plot_fig_size: Figure size used for visualization.
+
+        Returns:
+            Final decoded cell-map tensors.
+        """
+        self._prepare_regions(df=df, root_dir=root_dir)
+
+        if not isinstance(self.latent_diffusion_inferencer, OutpaintInferencer):
+            raise TypeError(
+                "latent_diffusion_inferencer must be an OutpaintInferencer "
+                "to use run_outpaint()."
+            )
+
+        latents = self.latent_diffusion_inferencer.run(
+            input_dir=input_dir,
+            save_dir=save_dir,
+            save_name=save_name,
+            num_steps=num_steps,
+            crop_ratio=crop_ratio,
+            iterations=iterations,
+            direction=direction,
             show_plot=show_plot,
             plot_title=plot_title,
             plot_fig_size=plot_fig_size,
