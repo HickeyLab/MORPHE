@@ -201,7 +201,6 @@ class MorpheTrainer:
                 root_dir=root_dir,
                 cfg=latent_diffusion_trainer_config or LatentTrainerConfig(),
                 device=resolved_device,
-                dtype=resolved_dtype,
                 seed=seed,
             )
             latent_train_result = latent_diffusion_trainer.train(
