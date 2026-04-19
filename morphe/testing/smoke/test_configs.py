@@ -45,7 +45,6 @@ def test_pixel_diffusion_config_defaults() -> None:
 
 def test_preprocess_config_defaults() -> None:
     cfg = PreProcessConfig()
-    assert len(cfg.original_dimensions) == 2
-    assert all(d > 0 for d in cfg.original_dimensions)
+    assert cfg.original_dimensions is None
     assert len(cfg.pos_cols) == 2
     assert all(isinstance(c, str) and c for c in cfg.pos_cols)
