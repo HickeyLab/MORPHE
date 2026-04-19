@@ -147,6 +147,7 @@ class MorpheTrainer:
                 cfg=gcnn_trainer_config or GCNNTrainerConfig(),
                 feature_cols=feature_cols,
                 region_col=preprocess_config.region_col,
+                pos_cols=preprocess_config.pos_cols,
                 device=resolved_device,
                 seed=seed,
             )
@@ -184,6 +185,8 @@ class MorpheTrainer:
             processed_df,
             root_dir,
             region_col=preprocess_config.region_col,
+            x_col=preprocess_config.pos_cols[0],
+            y_col=preprocess_config.pos_cols[1],
         )
 
         expected_latent_task_cls = LATENT_TRAIN_TASK_REGISTRY[inference_mode]

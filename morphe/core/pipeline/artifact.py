@@ -33,6 +33,13 @@ class MorpheArtifact:
             return "unique_region"
         return self.preprocessor_config.region_col
 
+    @property
+    def pos_cols(self) -> tuple[str, str]:
+        """Coordinate column names from the preprocessor config."""
+        if self.preprocessor_config is None:
+            return ("x", "y")
+        return self.preprocessor_config.pos_cols
+
     def save(self, path: str | Path) -> None:
         """
         Serialize this artifact to disk.

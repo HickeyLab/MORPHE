@@ -204,6 +204,8 @@ class MorpheInferencer:
             result_df=gcnn_probabilities,
             save_dir=root_dir,
             region_col=self.artifact.preprocessor_config.region_col,
+            x_col=self.artifact.preprocessor_config.pos_cols[0],
+            y_col=self.artifact.preprocessor_config.pos_cols[1],
         )
 
         return gcnn_probabilities, root_dir
