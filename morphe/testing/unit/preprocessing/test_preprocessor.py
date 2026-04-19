@@ -113,7 +113,7 @@ def test_preprocess_uses_config_dimensions_and_returns_reduce_output(monkeypatch
 	expected_dimensions = (3, 4)
 	called: dict[str, object] = {}
 
-	def fake_reduce_dimensions(df_initial, original_dimensions, *, region_col="unique_region", verbose=False):
+	def fake_reduce_dimensions(df_initial, original_dimensions, region_col="unique_region", x_col="x", y_col="y", *, verbose=False):
 		called["df_initial"] = df_initial
 		called["original_dimensions"] = original_dimensions
 		called["verbose"] = verbose

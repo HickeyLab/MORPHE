@@ -88,6 +88,8 @@ class PreProcessor:
         df_initial: pd.DataFrame,
         original_dimensions: tuple[int, int],
         region_col: str = "unique_region",
+        x_col: str = "x",
+        y_col: str = "y",
         *,
         verbose: bool = False,
     ) -> tuple[pd.DataFrame, tuple[int, int]]:
@@ -141,8 +143,8 @@ class PreProcessor:
                 coords.clear()
 
                 for idx, row in region_data.iterrows():
-                    x = row["x"]
-                    y = row["y"]
+                    x = row[x_col]
+                    y = row[y_col]
                     coord_pair = (x, y)
 
                     new_coord_pair = self._compute_new_coord_pair(
@@ -161,8 +163,8 @@ class PreProcessor:
                         break
 
                     x_n, y_n = new_coord_pair
-                    df.at[idx, "x"] = x_n
-                    df.at[idx, "y"] = y_n
+                    df.at[idx, x_col] = x_n
+                    df.at[idx, y_col] = y_n
                     coords.add(new_coord_pair)
 
                 if restart_outer_loop:
@@ -195,6 +197,8 @@ class PreProcessor:
             df,
             self.config.original_dimensions,
             region_col=self.config.region_col,
+            x_col=self.config.pos_cols[0],
+            y_col=self.config.pos_cols[1],
             verbose=verbose,
         )
         return new_df, new_dimensions

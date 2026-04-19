@@ -12,7 +12,6 @@ def test_defaults_construct_without_error() -> None:
     cfg = GCNNTrainerConfig()
 
     assert cfg.label_col == "Cell Type"
-    assert cfg.pos_cols == ("x", "y")
     assert cfg.k_neighbors == 20
     assert cfg.batch_size == 1
     assert cfg.hidden_channels == 768
@@ -30,29 +29,6 @@ def test_defaults_construct_without_error() -> None:
 def test_label_col_empty_rejected() -> None:
     with pytest.raises(TypeError, match="label_col must be a non-empty str"):
         GCNNTrainerConfig(label_col="")
-
-
-# ── pos_cols validation ────────────────────────────────────────────
-
-
-def test_pos_cols_wrong_length_rejected() -> None:
-    with pytest.raises(TypeError, match="pos_cols must be a length-2"):
-        GCNNTrainerConfig(pos_cols=("x",))
-
-
-def test_pos_cols_non_string_rejected() -> None:
-    with pytest.raises(TypeError, match="pos_cols must be a length-2"):
-        GCNNTrainerConfig(pos_cols=(1, 2))
-
-
-def test_pos_cols_empty_string_rejected() -> None:
-    with pytest.raises(TypeError, match="pos_cols must be a length-2"):
-        GCNNTrainerConfig(pos_cols=("x", ""))
-
-
-def test_pos_cols_accepts_list() -> None:
-    cfg = GCNNTrainerConfig(pos_cols=["cx", "cy"])
-    assert cfg.pos_cols == ["cx", "cy"]
 
 
 # ── k_neighbors validation ────────────────────────────────────────
