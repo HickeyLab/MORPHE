@@ -26,6 +26,13 @@ class MorpheArtifact:
     latent_diffusion_artifact: LatentDiffusionArtifact | None = None
     pixel_diffusion_artifact: PixelDiffusionArtifact | None = None
 
+    @property
+    def region_col(self) -> str:
+        """Region column name from the preprocessor config."""
+        if self.preprocessor_config is None:
+            return "unique_region"
+        return self.preprocessor_config.region_col
+
     def save(self, path: str | Path) -> None:
         """
         Serialize this artifact to disk.

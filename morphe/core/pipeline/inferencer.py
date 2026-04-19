@@ -202,6 +202,7 @@ class MorpheInferencer:
         self.autoencoder_inferencer.add_rgb_and_rasterize_per_region(
             result_df=gcnn_probabilities,
             save_dir=root_dir,
+            region_col=self.artifact.preprocessor_config.region_col,
         )
 
         return gcnn_probabilities, root_dir

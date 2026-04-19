@@ -15,7 +15,6 @@ class GCNNTrainerConfig:
 
     Dataset / graph construction:
         label_col: Name of the column containing class labels.
-        region_col: Column identifying distinct regions (each becomes a graph).
         pos_cols: Tuple of (x, y) coordinate columns used to build spatial edges.
         k_neighbors: Number of nearest neighbors used to construct graph edges.
         batch_size: Number of graphs per batch during training.
@@ -35,11 +34,12 @@ class GCNNTrainerConfig:
         The input dataframe must contain:
         - all feature columns passed to the trainer
         - label_col
-        - region_col
+        - the region column (passed as ``region_col`` to ``GCNNTrainer``)
         - both columns in pos_cols
 
     Notes:
-        - Each unique value in `region_col` defines a separate graph.
+        - The region column is passed directly to ``GCNNTrainer``, not stored here.
+          When using ``MorpheTrainer``, it is taken from ``PreProcessConfig.region_col``.
         - Edges are constructed using k-nearest neighbors in (x, y) space.
         - Larger `k_neighbors` increases connectivity but also compute cost.
         - Increasing `hidden_channels` improves capacity but increases memory usage.
@@ -55,7 +55,6 @@ class GCNNTrainerConfig:
 
     # dataset/schema
     label_col: str = "Cell Type"
-    region_col: str = "unique_region"
     pos_cols: tuple[str, str] = ("x", "y")
     k_neighbors: int = 20
     batch_size: int = 1
@@ -78,8 +77,6 @@ class GCNNTrainerConfig:
         # dataset/schema
         if not isinstance(self.label_col, str) or not self.label_col:
             raise TypeError("label_col must be a non-empty str.")
-        if not isinstance(self.region_col, str) or not self.region_col:
-            raise TypeError("region_col must be a non-empty str.")
 
         if (
             not isinstance(self.pos_cols, (tuple, list))

@@ -33,6 +33,7 @@ class GCNNTrainer:
         df: pd.DataFrame,
         cfg: GCNNTrainerConfig,
         feature_cols: Sequence[str],
+        region_col: str = "unique_region",
         device: torch.device | str | None = None,
         seed: int | None = None,
     ) -> None:
@@ -44,11 +45,15 @@ class GCNNTrainer:
                 and positional columns.
             cfg: Training configuration.
             feature_cols: Names of dataframe columns to use as node features.
+            region_col: Column name identifying distinct regions (each becomes a
+                graph). Defaults to ``"unique_region"``. When using
+                ``MorpheTrainer``, this is taken from ``PreProcessConfig.region_col``.
             device: Target device for training. If omitted, CUDA is used when
                 available; otherwise CPU is used.
         """
         self.cfg = cfg
         self.feature_cols = tuple(feature_cols)
+        self.region_col = region_col
         self.df = df
         self.device = resolve_device(device)
         self.seed = seed
@@ -89,7 +94,7 @@ class GCNNTrainer:
         if missing_feature_cols:
             raise ValueError(f"df missing feature_cols: {missing_feature_cols}")
 
-        required_cols = [self.cfg.label_col, self.cfg.region_col, *self.cfg.pos_cols]
+        required_cols = [self.cfg.label_col, self.region_col, *self.cfg.pos_cols]
         missing_required_cols = [col for col in required_cols if col not in df.columns]
         if missing_required_cols:
             raise ValueError(f"df missing required columns: {missing_required_cols}")
@@ -202,7 +207,7 @@ class GCNNTrainer:
             df=self.df,
             feature_cols=self.feature_cols,
             label_col=self.cfg.label_col,
-            region_col=self.cfg.region_col,
+            region_col=self.region_col,
             pos_cols=self.cfg.pos_cols,
             k_neighbors=self.cfg.k_neighbors,
             classes_=class_names,
@@ -275,7 +280,7 @@ class GCNNTrainer:
             alpha=float(self.cfg.alpha),
             K=self.cfg.K,
             label_col=self.cfg.label_col,
-            region_col=self.cfg.region_col,
+            region_col=self.region_col,
             pos_cols=tuple(self.cfg.pos_cols),
             k_neighbors=self.cfg.k_neighbors,
             feature_cols=tuple(self.feature_cols),
