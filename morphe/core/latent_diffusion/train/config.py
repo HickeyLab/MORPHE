@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Any
 
 
@@ -21,10 +20,6 @@ class LatentTrainerConfig:
         patience: Number of epochs with no improvement before triggering decay.
         lr_decay_every: Frequency (in epochs) at which to apply LR decay.
         lr_decay_factor: Multiplicative factor applied to the learning rate.
-
-    Checkpointing / output:
-        save_dir: Directory where checkpoints and artifacts are saved.
-        save_best_only: Whether to keep only the best checkpoint based on validation loss.
 
     Pretrained backbone:
         unet_pretrained_path: Path or HuggingFace identifier for the UNet model.
@@ -81,10 +76,6 @@ class LatentTrainerConfig:
     lr_decay_every: int | None = None
     lr_decay_factor: float | None = None
 
-    # Checkpointing / output
-    save_dir: str | Path = "checkpoints"
-    save_best_only: bool = True
-
     # Pretrained backbone
     unet_pretrained_path: str = "runwayml/stable-diffusion-v1-5"
     ae_pretrained_path: str = "runwayml/stable-diffusion-v1-5"
@@ -106,7 +97,6 @@ class LatentTrainerConfig:
     def __post_init__(self) -> None:
         """Validate config immediately after construction."""
         self.validate()
-        object.__setattr__(self, "save_dir", Path(self.save_dir))
 
     def validate(self) -> None:
         """Validate that all config values are internally consistent."""
@@ -141,14 +131,6 @@ class LatentTrainerConfig:
                 raise TypeError("lr_decay_factor must be a float or None.")
             if not (0.0 < float(self.lr_decay_factor) < 1.0):
                 raise ValueError("lr_decay_factor must be between 0 and 1.")
-
-        # ------------------------------------------------------------------
-        # Checkpointing / output
-        # ------------------------------------------------------------------
-        if not isinstance(self.save_dir, str) or not self.save_dir:
-            raise TypeError("save_dir must be a non-empty str.")
-        if not isinstance(self.save_best_only, bool):
-            raise TypeError("save_best_only must be a bool.")
 
         # ------------------------------------------------------------------
         # Pretrained backbone

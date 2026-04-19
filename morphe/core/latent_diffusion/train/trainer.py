@@ -318,11 +318,11 @@ class LatentDiffusionTrainer:
             if hasattr(self, attr):
                 setattr(self, attr, None)
 
-    def _save_artifact(self, artifact: LatentDiffusionArtifact, name: str, verbose: bool) -> Path:
+    def _save_artifact(self, artifact: LatentDiffusionArtifact, save_dir: Path, name: str, verbose: bool) -> Path:
         """
         Persist an already-built artifact to disk and return its path.
         """
-        artifact_path = self.cfg.save_dir / name  # type: ignore
+        artifact_path = save_dir / name
         artifact.save(artifact_path)
 
         if verbose:
@@ -336,6 +336,7 @@ class LatentDiffusionTrainer:
         save_best: bool = True,
         save_last: bool = True,
         checkpoint_every_epochs: int | None = None,
+        save_dir: str | Path = "checkpoints",
         save_name: str = "latent_diffuser_artifact.pt",
         verbose: bool = False,
     ) -> LatentTrainResult:
@@ -401,6 +402,8 @@ class LatentDiffusionTrainer:
 
             best_artifact: LatentDiffusionArtifact | None = None
 
+            resolved_save_dir = Path(save_dir)
+            resolved_save_dir.mkdir(parents=True, exist_ok=True)
             save_path = Path(save_name)
             best_name = save_path.name
             best_stem = save_path.stem
@@ -430,7 +433,7 @@ class LatentDiffusionTrainer:
                             f"{best_val:.6f}."
                         )
                     if save_best:
-                        self._save_artifact(best_artifact, name=best_name, verbose=verbose)
+                        self._save_artifact(best_artifact, resolved_save_dir, name=best_name, verbose=verbose)
 
                 if (
                     checkpoint_every_epochs is not None
@@ -439,7 +442,7 @@ class LatentDiffusionTrainer:
                 ):
                     checkpoint_artifact = self._build_artifact()
                     checkpoint_name = f"{best_stem}_epoch_{epoch + 1}{best_suffix}"
-                    self._save_artifact(checkpoint_artifact, name=checkpoint_name, verbose=verbose)
+                    self._save_artifact(checkpoint_artifact, resolved_save_dir, name=checkpoint_name, verbose=verbose)
 
                 if patience is not None:
                     patience_cnt = 0 if improved else patience_cnt + 1
@@ -470,7 +473,7 @@ class LatentDiffusionTrainer:
             if save_last:
                 last_artifact = self._build_artifact()
                 last_name = f"{best_stem}_last{best_suffix}"
-                self._save_artifact(last_artifact, name=last_name, verbose=verbose)
+                self._save_artifact(last_artifact, resolved_save_dir, name=last_name, verbose=verbose)
 
             if verbose:
                 print("[DiffusionTrainer] Training complete.")
