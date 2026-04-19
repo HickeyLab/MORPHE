@@ -17,3 +17,8 @@ def test_preprocessor_instantiates_with_custom_config() -> None:
     config = PreProcessConfig(original_dimensions=(1000, 2000))
     preprocessor = PreProcessor(config=config)
     assert preprocessor.config.original_dimensions == (1000, 2000)
+
+
+def test_preprocessor_auto_computes_dimensions_when_none() -> None:
+    config = PreProcessConfig()
+    assert config.original_dimensions is None

@@ -193,12 +193,17 @@ class PreProcessor:
                 - The preprocessed dataframe.
                 - The reduced grid dimensions.
         """
+        x_col, y_col = self.config.pos_cols
+        original_dimensions = self.config.original_dimensions or (
+            int(df[x_col].max()),
+            int(df[y_col].max()),
+        )
         new_df, new_dimensions = self._reduce_dimensions(
             df,
-            self.config.original_dimensions,
+            original_dimensions,
             region_col=self.config.region_col,
-            x_col=self.config.pos_cols[0],
-            y_col=self.config.pos_cols[1],
+            x_col=x_col,
+            y_col=y_col,
             verbose=verbose,
         )
         return new_df, new_dimensions
