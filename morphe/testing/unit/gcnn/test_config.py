@@ -12,7 +12,6 @@ def test_defaults_construct_without_error() -> None:
     cfg = GCNNTrainerConfig()
 
     assert cfg.label_col == "Cell Type"
-    assert cfg.region_col == "unique_region"
     assert cfg.pos_cols == ("x", "y")
     assert cfg.k_neighbors == 20
     assert cfg.batch_size == 1
@@ -25,17 +24,12 @@ def test_defaults_construct_without_error() -> None:
     assert cfg.epochs == 40
 
 
-# ── label_col / region_col validation ──────────────────────────────
+# ── label_col validation ────────────────────────────────────────────
 
 
 def test_label_col_empty_rejected() -> None:
     with pytest.raises(TypeError, match="label_col must be a non-empty str"):
         GCNNTrainerConfig(label_col="")
-
-
-def test_region_col_empty_rejected() -> None:
-    with pytest.raises(TypeError, match="region_col must be a non-empty str"):
-        GCNNTrainerConfig(region_col="")
 
 
 # ── pos_cols validation ────────────────────────────────────────────

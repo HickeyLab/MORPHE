@@ -178,7 +178,6 @@ class PreProcessor:
         df: pd.DataFrame,
         *,
         verbose: bool = False,
-        region_col: str = "unique_region",
     ) -> tuple[pd.DataFrame, tuple[int, int]]:
         """
         Run preprocessing on the input dataframe.
@@ -186,7 +185,6 @@ class PreProcessor:
         Args:
             df: Input dataframe to preprocess.
             verbose: Whether to print progress information during preprocessing.
-            region_col: Column name for the region identifier.
 
         Returns:
             A tuple containing:
@@ -196,7 +194,7 @@ class PreProcessor:
         new_df, new_dimensions = self._reduce_dimensions(
             df,
             self.config.original_dimensions,
-            region_col=region_col,
+            region_col=self.config.region_col,
             verbose=verbose,
         )
         return new_df, new_dimensions
