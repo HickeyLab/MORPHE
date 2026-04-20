@@ -222,14 +222,6 @@ class GCNNTrainer:
             classes_=class_names,
         )
         
-        # for g in dataset.data_list:
-        #     print(
-        #         g.region_id,
-        #         "nodes=", g.num_nodes,
-        #         "edges=", g.edge_index.shape[1],
-        #         "feat_dim=", g.x.shape[1],
-        #     )
-
         train_loader = DataLoader(
             dataset,
             batch_size=self.cfg.batch_size,

@@ -73,7 +73,7 @@ class LatentDiffusionTrainer:
     def encode_with_vae(self, x: torch.Tensor) -> torch.Tensor:
         vae_dtype = next(self.vae.parameters()).dtype
         x = x.to(device=self.accelerator.device, dtype=vae_dtype)
-        latents = self.vae.encode(x).latent_dist.sample()
+        latents = self.vae.encode(x).latent_dist.sample() # type: ignore
         return latents * self.scaling_factor
 
     def _set_seed(self) -> None:

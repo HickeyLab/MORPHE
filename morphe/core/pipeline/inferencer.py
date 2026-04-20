@@ -176,7 +176,7 @@ class MorpheInferencer:
         self,
         df: pd.DataFrame,
         root_dir: str | Path,
-    ) -> tuple[pd.DataFrame, Path]:
+    ) -> None:
         """
         Run the shared preprocessing, GCNN prediction, and autoencoder
         rasterization pipeline needed before latent diffusion inference.
@@ -185,11 +185,6 @@ class MorpheInferencer:
             df: Input dataframe containing raw per-cell or per-spot data.
             root_dir: Directory where intermediate rasterized region outputs
                 should be written.
-
-        Returns:
-            A tuple of:
-                - dataframe after GCNN prediction / downstream enrichment
-                - normalized root output directory path
         """
         if not root_dir:
             raise ValueError("Must provide root_dir for saving intermediate files.")
@@ -203,12 +198,10 @@ class MorpheInferencer:
         self.autoencoder_inferencer.add_rgb_and_rasterize_per_region(
             result_df=gcnn_probabilities,
             save_dir=root_dir,
-            region_col=self.artifact.preprocessor_config.region_col,
-            x_col=self.artifact.preprocessor_config.pos_cols[0],
-            y_col=self.artifact.preprocessor_config.pos_cols[1],
+            region_col=self.artifact.region_col,
+            x_col=self.artifact.pos_cols[0],
+            y_col=self.artifact.pos_cols[1],
         )
-
-        return gcnn_probabilities, root_dir
 
     def _decode_latents_to_cell_maps(
         self,
@@ -239,9 +232,8 @@ class MorpheInferencer:
     def run_gapfill(
         self,
         df: pd.DataFrame,
-        root_dir: str | Path,
         *,
-        input_dir: str | Path,
+        root_dir: str | Path,
         save_dir: str | Path,
         save_name: str = "default",
         num_steps: int = 200,
@@ -257,7 +249,6 @@ class MorpheInferencer:
         Args:
             df: Input dataframe containing raw region data.
             root_dir: Directory for intermediate rasterized outputs.
-            input_dir: Directory containing rasterized inputs for gap-filling.
             save_dir: Directory where latent gap-fill outputs should be saved.
             save_name: Base name used for saved outputs.
             steps: Number of diffusion denoising steps per iteration.
@@ -279,7 +270,7 @@ class MorpheInferencer:
             )
 
         latents = self.latent_diffusion_inferencer.run(
-            input_dir=input_dir,
+            input_dir=root_dir,
             save_dir=save_dir,
             save_name=save_name,
             num_steps=num_steps,
@@ -294,9 +285,8 @@ class MorpheInferencer:
     def run_inpaint(
         self,
         df: pd.DataFrame,
-        root_dir: str | Path,
         *,
-        input_dir: str | Path,
+        root_dir: str | Path,
         mask_dir: str | Path,
         num_steps: int = 200,
         show_plot: bool = False,
@@ -308,8 +298,7 @@ class MorpheInferencer:
 
         Args:
             df: Input dataframe containing raw region data.
-            root_dir: Directory for intermediate rasterized outputs.
-            input_dir: Directory containing rasterized inputs for inpainting.
+            root_dir: Directory containing rasterized inputs for inpainting.
             mask_dir: Directory containing inpainting masks.
             num_steps: Number of diffusion denoising steps.
             show_plot: Whether to display qualitative plots during inference.
@@ -328,7 +317,7 @@ class MorpheInferencer:
             )
 
         latents = self.latent_diffusion_inferencer.run(
-            input_dir=input_dir,
+            input_dir=root_dir,
             mask_dir=mask_dir,
             num_steps=num_steps,
             show_plot=show_plot,
@@ -340,9 +329,8 @@ class MorpheInferencer:
     def run_outpaint(
         self,
         df: pd.DataFrame,
-        root_dir: str | Path,
         *,
-        input_dir: str | Path,
+        root_dir: str | Path,
         save_dir: str | Path,
         save_name: str = "default",
         num_steps: int = 200,
@@ -382,7 +370,7 @@ class MorpheInferencer:
             )
 
         latents = self.latent_diffusion_inferencer.run(
-            input_dir=input_dir,
+            input_dir=root_dir,
             save_dir=save_dir,
             save_name=save_name,
             num_steps=num_steps,
@@ -402,7 +390,7 @@ class MorpheInferencer:
         *,
         prev_path: str | Path,
         next_path: str | Path,
-        out_dir: str | Path,
+        save_dir: str | Path,
         num_inference_steps: int = 200,
         w_prev: float = 0.5,
         w_next: float = 0.5,
@@ -415,6 +403,7 @@ class MorpheInferencer:
         Args:
             df: Input dataframe containing raw region data.
             root_dir: Directory for intermediate rasterized outputs.
+            save_dir: Directory for intermediate rasterized outputs.
             prev_path: Path to the previous slice input image.
             next_path: Path to the next slice input image.
             out_dir: Output directory for imputation results.
@@ -442,7 +431,7 @@ class MorpheInferencer:
         latent = self.latent_diffusion_inferencer.run(
             prev_img_path=prev_path,
             next_img_path=next_path,
-            out_dir=out_dir,
+            save_dir=save_dir,
             num_inference_steps=num_inference_steps,
             w_prev=w_prev,
             w_next=w_next,

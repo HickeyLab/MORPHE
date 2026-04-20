@@ -173,7 +173,7 @@ class ThreeDimImputationInferencer(BaseLatentInferencer):
         *,
         latents: torch.Tensor,
         decoded: torch.Tensor,
-        out_dir: str | Path,
+        save_dir: str | Path,
         save_latents_name: str,
         save_png_name: str,
     ) -> None:
@@ -183,11 +183,11 @@ class ThreeDimImputationInferencer(BaseLatentInferencer):
         Args:
             latents: Generated latent tensor to serialize.
             decoded: Decoded image tensor in model output space.
-            out_dir: Directory where outputs should be written.
+            save_dir: Directory where outputs should be written.
             save_latents_name: Filename for the saved latent tensor.
             save_png_name: Filename for the saved PNG image.
         """
-        output_dir = Path(out_dir)
+        output_dir = Path(save_dir)
         output_dir.mkdir(parents=True, exist_ok=True)
 
         latents_to_save = latents.detach().cpu()
@@ -258,7 +258,7 @@ class ThreeDimImputationInferencer(BaseLatentInferencer):
         self._save_outputs(
             latents=latents / self.scaling_factor,
             decoded=decoded,
-            out_dir=cfg.out_dir,
+            save_dir=cfg.save_dir,
             save_latents_name=cfg.save_latents_name,
             save_png_name=cfg.save_png_name,
         )
@@ -270,7 +270,7 @@ class ThreeDimImputationInferencer(BaseLatentInferencer):
         self,
         prev_img_path: str | Path,
         next_img_path: str | Path,
-        out_dir: str | Path,
+        save_dir: str | Path,
         num_inference_steps: int = 200,
         w_prev: float = 0.5,
         w_next: float = 0.5,
@@ -287,7 +287,7 @@ class ThreeDimImputationInferencer(BaseLatentInferencer):
         Args:
             prev_img_path: Path to the previous image.
             next_img_path: Path to the next image.
-            out_dir: Directory where outputs should be written.
+            save_dir: Directory where outputs should be written.
             num_inference_steps: Number of denoising steps.
             w_prev: Weight applied to the previous-image latent.
             w_next: Weight applied to the next-image latent.
@@ -300,7 +300,7 @@ class ThreeDimImputationInferencer(BaseLatentInferencer):
         cfg = ThreeDimImputationRunConfig(
             prev_img_path=prev_img_path,
             next_img_path=next_img_path,
-            out_dir=out_dir,
+            save_dir=save_dir,
             num_inference_steps=num_inference_steps,
             w_prev=w_prev,
             w_next=w_next,
@@ -314,7 +314,7 @@ class ThreeDimImputationInferencer(BaseLatentInferencer):
         self,
         prev_img_path: str | Path,
         next_img_path: str | Path,
-        out_dir: str | Path = Path("./outputs"),
+        save_dir: str | Path = Path("./outputs"),
         num_inference_steps: int = 200,
         start: float = 0.1,
         end: float = 0.9,
@@ -330,7 +330,7 @@ class ThreeDimImputationInferencer(BaseLatentInferencer):
         Args:
             prev_img_path: Path to the previous image.
             next_img_path: Path to the next image.
-            out_dir: Directory where outputs should be written.
+            save_dir: Directory where outputs should be written.
             num_inference_steps: Number of denoising steps per run.
             start: Starting value for ``w_prev``.
             end: Ending value for ``w_prev``.
@@ -343,7 +343,7 @@ class ThreeDimImputationInferencer(BaseLatentInferencer):
         cfg = ThreeDimImputationWeightSweepConfig(
             prev_img_path=prev_img_path,
             next_img_path=next_img_path,
-            out_dir=out_dir,
+            save_dir=save_dir,
             num_inference_steps=num_inference_steps,
             start=start,
             end=end,
@@ -363,7 +363,7 @@ class ThreeDimImputationInferencer(BaseLatentInferencer):
             run_cfg = ThreeDimImputationRunConfig(
                 prev_img_path=cfg.prev_img_path,
                 next_img_path=cfg.next_img_path,
-                out_dir=cfg.out_dir,
+                save_dir=cfg.save_dir,
                 num_inference_steps=cfg.num_inference_steps,
                 w_prev=w_prev,
                 w_next=w_next,

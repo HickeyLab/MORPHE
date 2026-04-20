@@ -190,7 +190,7 @@ class OutpaintRunConfig(LatentBaseRunConfig):
 class ThreeDimImputationRunConfig(LatentBaseRunConfig):
     prev_img_path: str | Path
     next_img_path: str | Path
-    out_dir: str | Path
+    save_dir: str | Path
     num_inference_steps: int = 200
     w_prev: float = 0.5
     w_next: float = 0.5
@@ -200,7 +200,7 @@ class ThreeDimImputationRunConfig(LatentBaseRunConfig):
     def validate(self) -> None:
         self.prev_img_path = Path(self.prev_img_path)
         self.next_img_path = Path(self.next_img_path)
-        self.out_dir = Path(self.out_dir)
+        self.save_dir = Path(self.save_dir)
         
         if not self.prev_img_path.exists():
             raise FileNotFoundError(f"prev_img_path does not exist: {self.prev_img_path}")
@@ -231,13 +231,13 @@ class ThreeDimImputationRunConfig(LatentBaseRunConfig):
         if not self.save_png_name.strip():
             raise ValueError("save_png_name must be non-empty.")
 
-        self.out_dir.mkdir(parents=True, exist_ok=True)
+        self.save_dir.mkdir(parents=True, exist_ok=True)
         
 @dataclass(slots=True)
 class ThreeDimImputationWeightSweepConfig(LatentBaseRunConfig):
     prev_img_path: Path | str
     next_img_path: Path | str
-    out_dir: Path | str = Path("./outputs")
+    save_dir: Path | str = Path("./outputs")
     num_inference_steps: int = 200
     start: float = 0.1
     end: float = 0.9
@@ -246,7 +246,7 @@ class ThreeDimImputationWeightSweepConfig(LatentBaseRunConfig):
     def validate(self) -> None:
         self.prev_img_path = Path(self.prev_img_path)
         self.next_img_path = Path(self.next_img_path)
-        self.out_dir = Path(self.out_dir)
+        self.save_dir = Path(self.save_dir)
 
         if not self.prev_img_path.exists():
             raise FileNotFoundError(f"prev_img_path does not exist: {self.prev_img_path}")
@@ -283,4 +283,4 @@ class ThreeDimImputationWeightSweepConfig(LatentBaseRunConfig):
         if self.step > span and self.start != self.end:
             raise ValueError("step is larger than the sweep range.")
         
-        self.out_dir.mkdir(parents=True, exist_ok=True)
+        self.save_dir.mkdir(parents=True, exist_ok=True)

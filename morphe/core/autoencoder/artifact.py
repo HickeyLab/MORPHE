@@ -9,7 +9,6 @@ from ...utils import resolve_device, resolve_dtype
 from .model import Autoencoder
 
 
-# TODO: DO WE ADD SEED TO AUTOENCODER ARTIFACT FOR TRAIN/VAL SPLIT IN LATENT DIFFUSER?
 @dataclass(frozen=True)
 class AutoencoderArtifact:
     state_dict: dict[str, torch.Tensor]

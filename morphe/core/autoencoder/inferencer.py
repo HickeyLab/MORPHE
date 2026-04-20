@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Sequence
 
 import numpy as np
 import pandas as pd
@@ -230,6 +231,65 @@ class AutoencoderInferencer:
 
         if rgb.ndim != 3 or rgb.shape[0] != 3:
             raise ValueError(f"rgb must have shape (3, h, w), got {tuple(rgb.shape)}.")
+        
+    def _validate_required_dataframe_columns(
+        self,
+        df: pd.DataFrame,
+        *,
+        columns: Sequence[str],
+        context: str,
+    ) -> None:
+        """
+        Validate that a dataframe contains all required columns for a given context.
+        """
+        missing = [col for col in columns if col not in df.columns]
+        if missing:
+            raise ValueError(
+                f"DataFrame is missing required {context} columns: {missing}"
+            )
+
+
+    def _validate_distinct_column_names(
+        self,
+        *,
+        columns: Sequence[str],
+        names: Sequence[str],
+        context: str,
+    ) -> None:
+        """
+        Validate that the provided column names are all distinct.
+        """
+        if len(columns) != len(set(columns)):
+            duplicates = sorted({col for col in columns if columns.count(col) > 1})
+            raise ValueError(
+                f"{context} column names must be distinct. Duplicates: {duplicates}"
+            )
+
+
+    def _validate_rasterization_params(
+        self,
+        *,
+        val_ratio: float,
+        image_size: int,
+        file_name_prefix: str,
+    ) -> None:
+        """
+        Validate scalar parameters used for rasterization.
+        """
+        if not isinstance(val_ratio, (int, float)):
+            raise TypeError("val_ratio must be a float.")
+        if not 0.0 <= float(val_ratio) <= 1.0:
+            raise ValueError(f"val_ratio must be in [0, 1], got {val_ratio}.")
+
+        if not isinstance(image_size, int):
+            raise TypeError("image_size must be an int.")
+        if image_size <= 0:
+            raise ValueError(f"image_size must be > 0, got {image_size}.")
+
+        if not isinstance(file_name_prefix, str):
+            raise TypeError("file_name_prefix must be a string.")
+        if not file_name_prefix.strip():
+            raise ValueError("file_name_prefix must be a non-empty string.")
 
     def _encode_to_rgb(
         self,
@@ -396,7 +456,6 @@ class AutoencoderInferencer:
         pred = pred.reshape(1, h, w)
         return pred
 
-    #TODO: MAKE THIS BETTER
     def add_rgb_and_rasterize_per_region(
         self,
         result_df: pd.DataFrame,
@@ -413,21 +472,53 @@ class AutoencoderInferencer:
         region_col: str = "unique_region",
     ) -> pd.DataFrame:
         """
-        Add RGB columns to a dataframe and rasterize the result by region.
+        Add RGB columns to a dataframe and rasterize each region to disk.
+
+        This method first encodes the model input columns into RGB triplets and
+        appends them to the dataframe, then rasterizes the RGB outputs separately
+        for each region.
 
         Args:
-            result_df: Input dataframe containing all required model input
-                columns.
-            save_dir: Directory where rasterized outputs should be written.
+            result_df: Input dataframe containing all required autoencoder input
+                columns, coordinate columns, and a region identifier column.
+            save_dir: Directory where rasterized region outputs will be written.
+            val_ratio: Fraction of regions assigned to the validation split.
+            image_size: Side length, in pixels, of each rasterized output image.
+            file_name_prefix: Prefix used when naming saved rasterized files.
+            seed: Random seed used for deterministic train/validation splitting.
+            x_col: Name of the dataframe column containing x coordinates.
+            y_col: Name of the dataframe column containing y coordinates.
+            r_col: Name of the red RGB output column to add.
+            g_col: Name of the green RGB output column to add.
+            b_col: Name of the blue RGB output column to add.
+            region_col: Name of the dataframe column identifying regions.
 
         Returns:
-            A copy of the input dataframe with added RGB columns.
+            A copy of ``result_df`` with added RGB columns.
+
+        Raises:
+            ValueError: If required rasterization columns are missing, if RGB/output
+                column names collide with rasterization columns, or if scalar
+                rasterization parameters are invalid.
         """
         save_dir = Path(save_dir)
-        
-        # TODO: ADD SEED IF NEEDED
-        # seed = self.artifact.seed if self.artifact.seed is not None else seed
-        
+
+        self._validate_required_dataframe_columns(
+            result_df,
+            columns=[x_col, y_col, region_col],
+            context="rasterization",
+        )
+        self._validate_distinct_column_names(
+            columns=[x_col, y_col, region_col, r_col, g_col, b_col],
+            names=["x_col", "y_col", "region_col", "r_col", "g_col", "b_col"],
+            context="Rasterization/input-output",
+        )
+        self._validate_rasterization_params(
+            val_ratio=val_ratio,
+            image_size=image_size,
+            file_name_prefix=file_name_prefix,
+        )
+
         result_df = self._encode_to_rgb_df(
             df=result_df,
             r_col=r_col,
@@ -436,7 +527,7 @@ class AutoencoderInferencer:
         )
 
         rasterize_rgb_regions(
-            result_df=result_df, 
+            result_df=result_df,
             save_dir=save_dir,
             val_ratio=val_ratio,
             seed=seed,

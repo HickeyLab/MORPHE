@@ -125,13 +125,11 @@ class RegionGraphDataset(Dataset):
 
                 edge_index = torch.tensor(edge_list, dtype=torch.long).t().contiguous()
 
-                # TODO: .uniqe() blowing up memory. temporarily removing
                 # Make graph undirected
                 edge_index = torch.cat(
                     [edge_index, edge_index.flip(0)],
                     dim=1,
-                )
-                # .unique(dim=1)
+                ).unique(dim=1)
 
             # Create PyG Data object
             x = torch.tensor(features, dtype=torch.float32)

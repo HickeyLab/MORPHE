@@ -707,7 +707,7 @@ class OutpaintInferencer(BaseLatentInferencer):
         iterations: int = 10,
         direction: str = "right",
         show_plot: bool = False,
-        plot_title: str = "Outpainting Iteration",
+        plot_title: str | None = "Outpainting Iteration",
         plot_fig_size: tuple[int, int] = (6, 6),
     ) -> list[torch.Tensor]:
         """
