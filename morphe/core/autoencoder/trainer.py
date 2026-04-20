@@ -485,7 +485,7 @@ class AutoencoderTrainer:
         self,
         *,
         save_best: bool = True,
-        save_dir: str | Path = "autoencoder_checkpoints",
+        save_dir: str | Path = "checkpoints",
         save_name: str = "autoencoder_artifact.pt",
         verbose: bool = False,
     ) -> AutoencoderArtifact:
@@ -516,7 +516,7 @@ class AutoencoderTrainer:
             raise RuntimeError("Data loaders must be initialized before training.")
 
         best_val_loss = float("inf")
-        best_artifact: AutoencoderArtifact | None = None
+        best_state_dict: dict | None = None
 
         if verbose:
             print(
@@ -556,15 +556,19 @@ class AutoencoderTrainer:
 
             if val_metrics.loss < best_val_loss:
                 best_val_loss = val_metrics.loss
-                if save_best:
-                    best_artifact = self._save_best_checkpoint(Path(save_dir), save_name)
-                else:
-                    best_artifact = self._build_best_artifact()
+                best_state_dict = {k: v.detach().cpu().clone() for k, v in self.model.state_dict().items()}
                 if verbose:
                     print(f"New best validation loss: {best_val_loss:.4f}")
 
-        if best_artifact is None:
+        if best_state_dict is None:
             raise RuntimeError("Training completed without producing a best artifact.")
+
+        self.model.load_state_dict({k: v.to(self.device) for k, v in best_state_dict.items()})
+
+        if save_best:
+            best_artifact = self._save_best_checkpoint(Path(save_dir), save_name)
+        else:
+            best_artifact = self._build_best_artifact()
 
         if verbose:
             print(f"Training complete. Best validation loss: {best_val_loss:.4f}")
