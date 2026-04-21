@@ -518,7 +518,7 @@ class GapfillInferencer(BaseLatentInferencer):
         bbox = self._resolve_bbox(cfg).to(dtype=unet_dtype)
 
         for iteration in range(cfg.iterations):
-            latent_mask = self._create_latent_mask(bbox, current_latent.shape)
+            latent_mask = self._create_latent_mask(bbox, current_latent.shape).to(dtype=unet_dtype)
             masked_latent = current_latent * (1 - latent_mask)
 
             noise = torch.randn_like(current_latent)
