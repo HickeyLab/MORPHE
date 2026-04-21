@@ -105,7 +105,6 @@ class GapfillInferencer(BaseLatentInferencer):
         artifact: LatentDiffusionArtifact,
         *,
         device: torch.device | str | None = None,
-        dtype: torch.dtype | None = None,
     ) -> Self:
         """
         Construct a gap-filling inferencer from a latent diffusion artifact.
@@ -118,8 +117,6 @@ class GapfillInferencer(BaseLatentInferencer):
             artifact: Latent diffusion artifact containing trained weights and
                 configuration for gap-filling inference.
             device: Target device for runtime inference components.
-            dtype: Target floating-point dtype for inference components. When
-                ``None``, defaults to a suitable dtype based on the device.
         """
         resolved_device = resolve_device(device)
         resolved_dtype = torch.float32

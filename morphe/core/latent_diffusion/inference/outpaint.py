@@ -102,7 +102,6 @@ class OutpaintInferencer(BaseLatentInferencer):
         artifact: LatentDiffusionArtifact,
         *,
         device: torch.device | str | None = None,
-        dtype: torch.dtype | None = None,
     ) -> Self:
         """
         Construct an ``OutpaintInferencer`` from a latent diffusion artifact.
@@ -116,14 +115,12 @@ class OutpaintInferencer(BaseLatentInferencer):
                 and architecture specifications.
             device: Target device for inference. If ``None``, a default device is
                 resolved.
-            dtype: Target floating-point dtype for inference. If ``None``, a
-                default dtype is resolved.
 
         Returns:
             An initialized ``OutpaintInferencer`` instance.
         """
         resolved_device = resolve_device(device)
-        resolved_dtype = resolve_dtype(resolved_device, dtype)
+        resolved_dtype = torch.float32
 
         unet, vae, cond_encoder, _, bbox_encoder, noise_scheduler = (
             artifact.architecture.build_components(

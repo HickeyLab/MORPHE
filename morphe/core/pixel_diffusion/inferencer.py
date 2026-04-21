@@ -71,7 +71,6 @@ class PixelDiffusionInferencer:
         *,
         scheduler_num_inference_steps: int = 150,
         device: torch.device | str | None = None,
-        dtype: torch.dtype| None = None,
     ) -> Self:
         adapter, unet512, noise_scheduler, resolved_device, resolved_dtype = (
             artifact.build_inference_components(

@@ -93,7 +93,6 @@ class ThreeDimImputationInferencer(BaseLatentInferencer):
         artifact: LatentDiffusionArtifact,
         *,
         device: torch.device | str | None = None,
-        dtype: torch.dtype | None = None,
     ) -> Self:
         """
         Construct a three-dimensional imputation inferencer from a latent diffusion artifact.
@@ -103,8 +102,6 @@ class ThreeDimImputationInferencer(BaseLatentInferencer):
                 architecture for three-dimensional imputation.
             device: Device to run inference on. If ``None``, a default device
                 is resolved.
-            dtype: Floating-point dtype to use for inference. If ``None``, a
-                default dtype is resolved.
         """
         if artifact.inference_mode != InferenceMode.THREE_DIMENSIONAL_IMPUTATION:
             raise RuntimeError(
@@ -114,7 +111,7 @@ class ThreeDimImputationInferencer(BaseLatentInferencer):
             )
 
         resolved_device = resolve_device(device)
-        resolved_dtype = resolve_dtype(resolved_device, dtype)
+        resolved_dtype = torch.float32
 
         unet, vae, cond_encoder, _, bbox_encoder, noise_scheduler = (
             artifact.architecture.build_components(
