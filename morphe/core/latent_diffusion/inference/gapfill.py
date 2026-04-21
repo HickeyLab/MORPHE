@@ -240,6 +240,7 @@ class GapfillInferencer(BaseLatentInferencer):
         return torch.tensor(
             [[0.0, 0.4375, 1.0, 0.5625]],
             device=self.device,
+            dtype=self.dtype,
         )
 
     def _encode_image_to_latent(self, image_tensor: torch.Tensor) -> torch.Tensor:
@@ -542,7 +543,7 @@ class GapfillInferencer(BaseLatentInferencer):
 
                 with torch.no_grad():
                     noise_pred = self.unet(
-                        latent_input,
+                        latent_input.to(dtype=self.dtype),
                         timestep,
                         encoder_hidden_states=condition,
                     ).sample
