@@ -522,7 +522,7 @@ class GapfillInferencer(BaseLatentInferencer):
             noisy_latent_region = self.noise_scheduler.add_noise(
                 masked_latent * latent_mask,
                 noise * latent_mask,
-                torch.tensor(cfg.steps),  # type: ignore
+                torch.tensor(cfg.num_steps),  # type: ignore
             )
             noisy_latent = (
                 masked_latent * (1 - latent_mask)
