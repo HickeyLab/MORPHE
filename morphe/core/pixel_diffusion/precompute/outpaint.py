@@ -28,9 +28,9 @@ class OutpaintPrecomputeTask(PixelPrecomputeTask):
     masks_per_image_val: int = 5
     img_size: int = 512
 
-    def build_dataset(self, root_dir: Path) -> tuple[OutpaintDataset, OutpaintDataset]:
+    def build_dataset(self, input_dir: Path) -> tuple[OutpaintDataset, OutpaintDataset]:
         return build_outpaint_dataset(
-            root_dir=root_dir,
+            input_dir=input_dir,
             masks_per_image_train=self.masks_per_image_train,
             masks_per_image_val=self.masks_per_image_val,
             img_size=self.img_size,

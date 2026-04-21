@@ -89,7 +89,7 @@ class PixelDatasetPrecomputer:
     def precompute(
         self,
         *,
-        root_dir: str | Path,
+        input_dir: str | Path,
         out_dir: str | Path,
         batch_size: int = 1,
         num_workers: int = 4,
@@ -98,7 +98,7 @@ class PixelDatasetPrecomputer:
         Precompute train and validation splits and write their index files.
 
         Args:
-            root_dir: Root directory used by the strategy to build datasets (autoencoder output).
+            input_dir: Root directory used by the strategy to build datasets (autoencoder output).
             out_dir: Output directory where split subdirectories and index files
                 will be written.
             batch_size: Batch size used during precomputation.
@@ -107,11 +107,11 @@ class PixelDatasetPrecomputer:
         Returns:
             A tuple of `(train_index_path, val_index_path)`.
         """
-        root_dir = Path(root_dir)
+        input_dir = Path(input_dir)
         out_dir = Path(out_dir)
 
-        if not root_dir.exists():
-            raise FileNotFoundError(f"root_dir does not exist: {root_dir}")
+        if not input_dir.exists():
+            raise FileNotFoundError(f"input_dir does not exist: {input_dir}")
         if batch_size < 1:
             raise ValueError(f"batch_size must be at least 1, got {batch_size}")
         if num_workers < 0:
@@ -119,7 +119,7 @@ class PixelDatasetPrecomputer:
 
         out_dir.mkdir(parents=True, exist_ok=True)
 
-        train_ds, val_ds = self.precompute_task.build_dataset(root_dir=root_dir)
+        train_ds, val_ds = self.precompute_task.build_dataset(input_dir=input_dir)
 
         if self._injected_vae_encoder is not None:
             vae_encoder = self._injected_vae_encoder

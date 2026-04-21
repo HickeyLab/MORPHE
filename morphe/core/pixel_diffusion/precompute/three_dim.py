@@ -29,8 +29,8 @@ class ThreeDimImputationPrecomputeTask(PixelPrecomputeTask):
     metadata.
     """
 
-    def build_dataset(self, root_dir: Path) -> tuple[Slice3DDataset, Slice3DDataset]:
-        return build_three_dim_dataset(root_dir=root_dir)
+    def build_dataset(self, input_dir: Path) -> tuple[Slice3DDataset, Slice3DDataset]:
+        return build_three_dim_dataset(input_dir=input_dir)
 
     def get_encoder_input(self, batch: ThreeDimBatch) -> torch.Tensor:
         img_prev, _, _, _, _ = batch

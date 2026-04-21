@@ -36,7 +36,7 @@ class LatentTrainTask(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def build_dataset(self, root_dir: Path) -> Tuple[Dataset, Dataset]:
+    def build_dataset(self, input_dir: Path) -> Tuple[Dataset, Dataset]:
         raise NotImplementedError
 
     @abstractmethod

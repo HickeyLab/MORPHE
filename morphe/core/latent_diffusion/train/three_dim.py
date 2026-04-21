@@ -72,7 +72,7 @@ class ThreeDimImputationTrainTask(LatentTrainTask):
     
     def build_dataset(
         self, 
-        root_dir: Path,
+        input_dir: Path,
     ) -> tuple[Dataset, Dataset]:
         """
         Build training and validation datasets for 3D imputation.
@@ -84,12 +84,12 @@ class ThreeDimImputationTrainTask(LatentTrainTask):
         - Weight coefficients for combining context (wp, wn)
 
         Args:
-            root_dir: Root directory containing dataset assets.
+            input_dir: Root directory containing dataset assets.
 
         Returns:
             Tuple of (train_dataset, val_dataset).
         """
-        return build_three_dim_dataset(root_dir=root_dir)
+        return build_three_dim_dataset(input_dir=input_dir)
     
     def train_step(
         self,

@@ -25,7 +25,7 @@ class PixelPrecomputeTask(ABC, Generic[TDataset, TBatch, TMetadata]):
     ae_pretrained_path: str = "runwayml/stable-diffusion-v1-5"
 
     @abstractmethod
-    def build_dataset(self, root_dir: Path) -> tuple[TDataset, TDataset]:
+    def build_dataset(self, input_dir: Path) -> tuple[TDataset, TDataset]:
         """
         Build and return the train and validation datasets.
         """

@@ -74,7 +74,7 @@ class OutpaintTrainTask(LatentTrainTask):
 
     def build_dataset(
         self,
-        root_dir: Path,
+        input_dir: Path,
     ) -> tuple[Dataset, Dataset]:
         """
         Build training and validation datasets for outpainting.
@@ -85,13 +85,13 @@ class OutpaintTrainTask(LatentTrainTask):
         - Bounding box specifying region to generate
 
         Args:
-            root_dir: Root directory containing dataset assets.
+            input_dir: Root directory containing dataset assets.
 
         Returns:
             Tuple of (train_dataset, val_dataset).
         """
         return build_outpaint_dataset(
-            root_dir=root_dir,
+            input_dir=input_dir,
             masks_per_image_train=self.masks_per_image_train,
             masks_per_image_val=self.masks_per_image_val
         )
