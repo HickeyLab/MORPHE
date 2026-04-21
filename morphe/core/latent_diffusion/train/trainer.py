@@ -16,6 +16,7 @@ from ..model import BBoxEncoder, CondEncoder, CondEncoder3D, CoordEncoder
 from .base import LatentTrainTask
 from .config import LatentTrainerConfig
 from ...pixel_diffusion.models import UNet512
+from ....constants import InferenceMode
 from ....utils import resolve_device, resolve_dtype
 
 
@@ -46,6 +47,7 @@ class LatentDiffusionTrainer:
         input_dir: Path,
         train_task: LatentTrainTask,
         cfg: LatentTrainerConfig,
+        inference_mode: InferenceMode | None = None,
         device: torch.device | str | None = None,
         seed: int | None = None,
     ) -> None:
@@ -53,6 +55,7 @@ class LatentDiffusionTrainer:
         self.train_task = train_task
         self.cfg = cfg
         self.seed = seed
+        self.inference_mode = inference_mode if inference_mode is not None else train_task.inference_mode
 
         self.device = resolve_device(device)
 
@@ -286,7 +289,7 @@ class LatentDiffusionTrainer:
             coord_encoder_state_dict=coord_state,
             bbox_encoder_state_dict=bbox_state,
             architecture=self.arch_spec,
-            inference_mode=self.train_task.inference_mode,
+            inference_mode=self.inference_mode,
             img_size=getattr(self.train_task, "img_size", None),
         )
 

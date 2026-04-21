@@ -203,6 +203,7 @@ class MorpheTrainer:
 
             latent_diffusion_trainer = LatentDiffusionTrainer(
                 train_task=resolved_latent_task,
+                inference_mode=inference_mode,
                 root_dir=root_dir,
                 cfg=latent_diffusion_trainer_config or LatentTrainerConfig(),
                 device=resolved_device,
