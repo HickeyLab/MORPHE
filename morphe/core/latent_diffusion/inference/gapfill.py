@@ -122,7 +122,7 @@ class GapfillInferencer(BaseLatentInferencer):
                 ``None``, defaults to a suitable dtype based on the device.
         """
         resolved_device = resolve_device(device)
-        resolved_dtype = resolve_dtype(resolved_device, dtype)
+        resolved_dtype = torch.float32
 
         unet, vae, cond_encoder, _, bbox_encoder, noise_scheduler = (
             artifact.architecture.build_components(
@@ -318,10 +318,8 @@ class GapfillInferencer(BaseLatentInferencer):
         Returns:
             A channel-last NumPy image array suitable for plotting or saving.
         """
-        vae_dtype = self.dtype
-        self.vae.to(dtype=vae_dtype)
         with torch.no_grad():
-            decoded = self.vae.decode((latent / self.scaling_factor).to(dtype=vae_dtype)).sample  # type: ignore
+            decoded = self.vae.decode(latent / self.scaling_factor).sample  # type: ignore
 
         preview = (
             decoded[0].permute(1, 2, 0).cpu().numpy() * 0.5 + 0.5
