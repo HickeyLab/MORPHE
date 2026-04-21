@@ -59,7 +59,6 @@ class AutoencoderInferencer:
         artifact: AutoencoderArtifact,
         *,
         device: torch.device | str | None = None,
-        dtype: torch.dtype | None = None,
     ) -> AutoencoderInferencer:
         """
         Construct an inferencer from an autoencoder artifact.
@@ -69,8 +68,6 @@ class AutoencoderInferencer:
                 required for inference.
             device: Target device for model execution. If ``None``, a default
                 device is resolved automatically.
-            dtype: Target data type for model execution. If ``None``, a default
-                dtype is resolved based on the target device.
 
         Returns:
             An initialized ``AutoencoderInferencer``.
@@ -86,7 +83,7 @@ class AutoencoderInferencer:
         return cls(
             artifact=artifact,
             device=device,
-            dtype=dtype,
+            dtype=torch.float32,
         )
 
     def _to_embedding_tensor(

@@ -96,7 +96,6 @@ class MorpheInferencer:
         *,
         artifact: MorpheArtifact,
         device: torch.device | str | None = None,
-        dtype: torch.dtype | None = None,
     ) -> "MorpheInferencer":
         """
         Build a ``MorpheInferencer`` from a top-level artifact.
@@ -104,13 +103,12 @@ class MorpheInferencer:
         Args:
             artifact: Top-level MORPHE artifact.
             device: Target device for inference.
-            dtype: Optional floating-point dtype for inference components.
 
         Returns:
             A fully initialized ``MorpheInferencer``.
         """
         resolved_device = resolve_device(device)
-        resolved_dtype = resolve_dtype(device=resolved_device, dtype=dtype)
+        resolved_dtype = torch.float32
 
         if (
             artifact.preprocessor_config is None
@@ -134,12 +132,10 @@ class MorpheInferencer:
         gcnn_inferencer = GCNNInferencer.from_artifact(
             artifact=artifact.gcnn_artifact,
             device=resolved_device,
-            dtype=resolved_dtype,
         )
         autoencoder_inferencer = AutoencoderInferencer.from_artifact(
             artifact=artifact.autoencoder_artifact,
             device=resolved_device,
-            dtype=resolved_dtype,
         )
 
         inference_cls = LATENT_INFERENCER_REGISTRY.get(
@@ -153,12 +149,10 @@ class MorpheInferencer:
         ld_inferencer = inference_cls.from_artifact(
             artifact=artifact.latent_diffusion_artifact,
             device=resolved_device,
-            dtype=resolved_dtype,
         )
         pd_inferencer = PixelDiffusionInferencer.from_artifact(
             artifact=artifact.pixel_diffusion_artifact,
             device=resolved_device,
-            dtype=resolved_dtype,
         )
 
         return cls(

@@ -47,7 +47,6 @@ class GCNNInferencer:
         artifact: GCNNArtifact,
         *,
         device: torch.device | str | None = None,
-        dtype: torch.dtype | None = None,
     ) -> GCNNInferencer:
         """
         Build an inferencer from a serialized GCNN artifact.
@@ -62,12 +61,11 @@ class GCNNInferencer:
         """
         if not isinstance(artifact, GCNNArtifact):
             raise TypeError("Expected artifact to be an instance of GCNNArtifact.")
-        
+
         device = resolve_device(device)
-        dtype = resolve_dtype(device, dtype)
-        model = artifact.build_model(device=device, dtype=dtype)
-        
-        return cls(artifact=artifact, model=model, device=device, dtype=dtype)
+        model = artifact.build_model(device=device, dtype=torch.float32)
+
+        return cls(artifact=artifact, model=model, device=device, dtype=torch.float32)
 
     def predict_proba(
         self,
