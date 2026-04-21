@@ -495,6 +495,7 @@ class PixelDiffusionTrainer:
         epochs_without_improvement = 0
         best_epoch = 0
         best_global_step = 0
+        ckpt_dir = str(Path(save_dir) / "ckpt_best") if save_dir else "ckpt_best"
 
         if verbose:
             self.accelerator.print(
@@ -541,7 +542,7 @@ class PixelDiffusionTrainer:
                     best_global_step = self.global_step
 
                     self.accelerator.wait_for_everyone()
-                    self.accelerator.save_state("ckpt_best")
+                    self.accelerator.save_state(ckpt_dir)
 
                     if verbose:
                         self.accelerator.print(
@@ -562,7 +563,7 @@ class PixelDiffusionTrainer:
                         break
 
             self.accelerator.wait_for_everyone()
-            self.accelerator.load_state("ckpt_best")
+            self.accelerator.load_state(ckpt_dir)
             self.accelerator.wait_for_everyone()
 
             if verbose:
