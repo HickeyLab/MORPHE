@@ -291,7 +291,6 @@ class GapfillInferencer(BaseLatentInferencer):
                 "GapfillInferencer requires a bbox encoder in the artifact runtime."
             )
 
-        masked_latent = masked_latent.to(dtype=self.dtype)
         seq_len = self.cond_encoder(masked_latent).shape[1]
         bbox_features = bbox_encoder(bbox).unsqueeze(1).expand(-1, seq_len, -1)
 
@@ -321,7 +320,7 @@ class GapfillInferencer(BaseLatentInferencer):
             A channel-last NumPy image array suitable for plotting or saving.
         """
         with torch.no_grad():
-            decoded = self.vae.decode((latent / self.scaling_factor).to(dtype=self.dtype)).sample  # type: ignore
+            decoded = self.vae.decode(latent / self.scaling_factor).sample  # type: ignore
 
         preview = (
             decoded[0].permute(1, 2, 0).cpu().numpy() * 0.5 + 0.5
@@ -513,7 +512,7 @@ class GapfillInferencer(BaseLatentInferencer):
             The final generated latent tensor after all configured iterations.
         """
         image_tensor = self._load_image_tensor(Path(cfg.input_dir))
-        current_latent = self._encode_image_to_latent(image_tensor)
+        current_latent = self._encode_image_to_latent(image_tensor).to(dtype=self.dtype)
         bbox = self._resolve_bbox(cfg)
 
         for iteration in range(cfg.iterations):
@@ -543,7 +542,7 @@ class GapfillInferencer(BaseLatentInferencer):
 
                 with torch.no_grad():
                     noise_pred = self.unet(
-                        latent_input.to(dtype=self.dtype),
+                        latent_input,
                         timestep,
                         encoder_hidden_states=condition,
                     ).sample
