@@ -240,7 +240,6 @@ class GapfillInferencer(BaseLatentInferencer):
         return torch.tensor(
             [[0.0, 0.4375, 1.0, 0.5625]],
             device=self.device,
-            dtype=self.dtype,
         )
 
     def _encode_image_to_latent(self, image_tensor: torch.Tensor) -> torch.Tensor:
@@ -319,8 +318,9 @@ class GapfillInferencer(BaseLatentInferencer):
         Returns:
             A channel-last NumPy image array suitable for plotting or saving.
         """
+        vae_dtype = next(self.vae.parameters()).dtype
         with torch.no_grad():
-            decoded = self.vae.decode((latent / self.scaling_factor).to(dtype=self.dtype)).sample  # type: ignore
+            decoded = self.vae.decode((latent / self.scaling_factor).to(dtype=vae_dtype)).sample  # type: ignore
 
         preview = (
             decoded[0].permute(1, 2, 0).cpu().numpy() * 0.5 + 0.5
@@ -511,9 +511,11 @@ class GapfillInferencer(BaseLatentInferencer):
         Returns:
             The final generated latent tensor after all configured iterations.
         """
+        unet_dtype = next(self.unet.parameters()).dtype
+
         image_tensor = self._load_image_tensor(Path(cfg.input_dir))
-        current_latent = self._encode_image_to_latent(image_tensor).to(dtype=self.dtype)
-        bbox = self._resolve_bbox(cfg)
+        current_latent = self._encode_image_to_latent(image_tensor).to(dtype=unet_dtype)
+        bbox = self._resolve_bbox(cfg).to(dtype=unet_dtype)
 
         for iteration in range(cfg.iterations):
             latent_mask = self._create_latent_mask(bbox, current_latent.shape)
@@ -551,7 +553,7 @@ class GapfillInferencer(BaseLatentInferencer):
                     noise_pred,
                     timestep, # type: ignore
                     latent_input,
-                ).prev_sample.to(dtype=self.dtype)  # type: ignore
+                ).prev_sample.to(dtype=unet_dtype)  # type: ignore
 
                 if step_idx == cfg.num_steps - 1:
                     generated_latent = (
