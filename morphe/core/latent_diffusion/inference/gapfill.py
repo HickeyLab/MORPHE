@@ -320,7 +320,7 @@ class GapfillInferencer(BaseLatentInferencer):
             A channel-last NumPy image array suitable for plotting or saving.
         """
         with torch.no_grad():
-            decoded = self.vae.decode(latent / self.scaling_factor).sample  # type: ignore
+            decoded = self.vae.decode((latent / self.scaling_factor).to(dtype=self.dtype)).sample  # type: ignore
 
         preview = (
             decoded[0].permute(1, 2, 0).cpu().numpy() * 0.5 + 0.5
@@ -551,7 +551,7 @@ class GapfillInferencer(BaseLatentInferencer):
                     noise_pred,
                     timestep, # type: ignore
                     latent_input,
-                ).prev_sample  # type: ignore
+                ).prev_sample.to(dtype=self.dtype)  # type: ignore
 
                 if step_idx == cfg.num_steps - 1:
                     generated_latent = (
