@@ -290,6 +290,7 @@ class GapfillInferencer(BaseLatentInferencer):
                 "GapfillInferencer requires a bbox encoder in the artifact runtime."
             )
 
+        masked_latent = masked_latent.to(dtype=self.dtype)
         seq_len = self.cond_encoder(masked_latent).shape[1]
         bbox_features = bbox_encoder(bbox).unsqueeze(1).expand(-1, seq_len, -1)
 
