@@ -171,6 +171,7 @@ class ThreeDimImputationInferencer(BaseLatentInferencer):
         latents: torch.Tensor,
         decoded: torch.Tensor,
         save_dir: str | Path,
+        save_name: str,
         save_latents_name: str,
         save_png_name: str,
     ) -> None:
@@ -180,11 +181,12 @@ class ThreeDimImputationInferencer(BaseLatentInferencer):
         Args:
             latents: Generated latent tensor to serialize.
             decoded: Decoded image tensor in model output space.
-            save_dir: Directory where outputs should be written.
+            save_dir: Root directory where outputs should be written.
+            save_name: Subdirectory name under ``save_dir``.
             save_latents_name: Filename for the saved latent tensor.
             save_png_name: Filename for the saved PNG image.
         """
-        output_dir = Path(save_dir)
+        output_dir = Path(save_dir) / save_name
         output_dir.mkdir(parents=True, exist_ok=True)
 
         latents_to_save = latents.detach().cpu()
@@ -256,6 +258,7 @@ class ThreeDimImputationInferencer(BaseLatentInferencer):
             latents=latents / self.scaling_factor,
             decoded=decoded,
             save_dir=cfg.save_dir,
+            save_name=cfg.save_name,
             save_latents_name=cfg.save_latents_name,
             save_png_name=cfg.save_png_name,
         )
@@ -268,6 +271,7 @@ class ThreeDimImputationInferencer(BaseLatentInferencer):
         prev_img_path: str | Path,
         next_img_path: str | Path,
         save_dir: str | Path,
+        save_name: str = "default",
         num_inference_steps: int = 200,
         w_prev: float = 0.5,
         w_next: float = 0.5,
@@ -284,7 +288,8 @@ class ThreeDimImputationInferencer(BaseLatentInferencer):
         Args:
             prev_img_path: Path to the previous image.
             next_img_path: Path to the next image.
-            save_dir: Directory where outputs should be written.
+            save_dir: Root directory where outputs should be written.
+            save_name: Subdirectory under ``save_dir`` for this run's outputs.
             num_inference_steps: Number of denoising steps.
             w_prev: Weight applied to the previous-image latent.
             w_next: Weight applied to the next-image latent.
@@ -298,6 +303,7 @@ class ThreeDimImputationInferencer(BaseLatentInferencer):
             prev_img_path=prev_img_path,
             next_img_path=next_img_path,
             save_dir=save_dir,
+            save_name=save_name,
             num_inference_steps=num_inference_steps,
             w_prev=w_prev,
             w_next=w_next,

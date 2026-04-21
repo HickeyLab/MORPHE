@@ -20,6 +20,8 @@ class LatentBaseRunConfig:
 class InpaintRunConfig(LatentBaseRunConfig):
     input_dir: str | Path
     mask_dir: str | Path
+    save_dir: str | Path | None = None
+    save_name: str = "default"
     num_steps: int = 200
     show_plot: bool = False
     plot_title: str = "Inpainting Progress"
@@ -33,6 +35,11 @@ class InpaintRunConfig(LatentBaseRunConfig):
             raise FileNotFoundError(f"input_dir does not exist: {self.input_dir}")
         if not self.mask_dir.exists():
             raise FileNotFoundError(f"mask_dir does not exist: {self.mask_dir}")
+
+        if self.save_dir is not None:
+            self.save_dir = Path(self.save_dir)
+            if not isinstance(self.save_name, str) or not self.save_name.strip():
+                raise ValueError("save_name must be a non-empty str.")
 
         if not isinstance(self.num_steps, int):
             raise TypeError("num_steps must be an int.")
@@ -191,6 +198,7 @@ class ThreeDimImputationRunConfig(LatentBaseRunConfig):
     prev_img_path: str | Path
     next_img_path: str | Path
     save_dir: str | Path
+    save_name: str = "default"
     num_inference_steps: int = 200
     w_prev: float = 0.5
     w_next: float = 0.5

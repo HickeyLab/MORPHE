@@ -342,12 +342,20 @@ class InpaintInferencer(BaseLatentInferencer):
                 cfg=cfg,
             )
 
+        if cfg.save_dir is not None:
+            run_dir = Path(cfg.save_dir) / cfg.save_name
+            run_dir.mkdir(parents=True, exist_ok=True)
+            stem = Path(cfg.input_dir).stem
+            torch.save(x.detach().cpu(), run_dir / f"{stem}_latent.pt")
+
         return x
 
     def run_one(
         self,
         image_path: str | Path,
         mask_dir: str | Path,
+        save_dir: str | Path | None = None,
+        save_name: str = "default",
         num_steps: int = 200,
         show_plot: bool = False,
         plot_title: str = "Inpainting Progress",
@@ -357,19 +365,23 @@ class InpaintInferencer(BaseLatentInferencer):
         Run inpainting for a single image/mask pair.
 
         Args:
-            input_dir: Path to the input image file.
+            image_path: Path to the input image file.
             mask_dir: Path to the mask image file.
+            save_dir: Directory where the latent .pt file should be saved.
+            save_name: Subdirectory under ``save_dir`` for this run's outputs.
             num_steps: Number of diffusion inference steps.
             show_plot: Whether to display a comparison plot.
             plot_title: Title for the optional plot.
             plot_fig_size: Figure size for the optional plot.
 
         Returns:
-            The final inpainted image tensor.
+            The final inpainted latent tensor.
         """
         cfg = InpaintRunConfig(
             input_dir=image_path,
             mask_dir=mask_dir,
+            save_dir=save_dir,
+            save_name=save_name,
             num_steps=num_steps,
             show_plot=show_plot,
             plot_title=plot_title,
@@ -382,6 +394,8 @@ class InpaintInferencer(BaseLatentInferencer):
         self,
         input_dir: str | Path,
         mask_dir: str | Path,
+        save_dir: str | Path | None = None,
+        save_name: str = "default",
         num_steps: int = 200,
         show_plot: bool = False,
         plot_title: str = "Inpainting Progress",
@@ -396,13 +410,15 @@ class InpaintInferencer(BaseLatentInferencer):
         Args:
             input_dir: Directory containing input image files.
             mask_dir: Directory containing mask image files.
+            save_dir: Directory where latent .pt files should be saved.
+            save_name: Subdirectory under ``save_dir`` for this run's outputs.
             num_steps: Number of diffusion inference steps per sample.
             show_plot: Whether to display a comparison plot for each sample.
             plot_title: Title for optional plots.
             plot_fig_size: Figure size for optional plots.
 
         Returns:
-            A list of inpainted image tensors, one per successfully processed file.
+            A list of inpainted latent tensors, one per successfully processed file.
 
         Raises:
             FileNotFoundError: If ``input_dir`` or ``mask_dir`` is not a directory.
@@ -437,6 +453,8 @@ class InpaintInferencer(BaseLatentInferencer):
             per_file_cfg = InpaintRunConfig(
                 input_dir=image_path,
                 mask_dir=per_file_mask_path,
+                save_dir=save_dir,
+                save_name=save_name,
                 num_steps=num_steps,
                 show_plot=show_plot,
                 plot_title=plot_title,
