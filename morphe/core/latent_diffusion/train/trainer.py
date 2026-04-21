@@ -43,13 +43,13 @@ class LatentDiffusionTrainer:
     def __init__(
         self,
         *,
-        root_dir: Path,
+        input_dir: Path,
         train_task: LatentTrainTask,
         cfg: LatentTrainerConfig,
         device: torch.device | str | None = None,
         seed: int | None = None,
     ) -> None:
-        self.root_dir = Path(root_dir)
+        self.input_dir = Path(input_dir)
         self.train_task = train_task
         self.cfg = cfg
         self.seed = seed
@@ -118,7 +118,7 @@ class LatentDiffusionTrainer:
         """
         Build train/validation dataloaders from the strategy-provided datasets.
         """
-        train_data, val_data = self.train_task.build_dataset(self.root_dir)
+        train_data, val_data = self.train_task.build_dataset(self.input_dir)
 
         pin_memory = self.device.type == "cuda"
 

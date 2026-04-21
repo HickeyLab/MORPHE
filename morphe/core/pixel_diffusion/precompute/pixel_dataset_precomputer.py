@@ -98,7 +98,7 @@ class PixelDatasetPrecomputer:
         Precompute train and validation splits and write their index files.
 
         Args:
-            root_dir: Root directory used by the strategy to build datasets.
+            root_dir: Root directory used by the strategy to build datasets (autoencoder output).
             out_dir: Output directory where split subdirectories and index files
                 will be written.
             batch_size: Batch size used during precomputation.
