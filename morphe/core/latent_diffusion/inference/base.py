@@ -55,7 +55,6 @@ class BaseLatentInferencer(ABC, Generic[RunConfigT]):
         artifact: LatentDiffusionArtifact,
         *,
         device: torch.device | str | None = None,
-        dtype: torch.dtype | None = None,
     ) -> Self:
         raise NotImplementedError
     
