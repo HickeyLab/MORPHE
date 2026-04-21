@@ -460,6 +460,7 @@ class AutoencoderInferencer:
         self,
         result_df: pd.DataFrame,
         save_dir: str | Path,
+        split: bool = True,
         val_ratio: float = 0.2,
         image_size: int = 512,
         file_name_prefix: str = "region",
@@ -482,7 +483,9 @@ class AutoencoderInferencer:
             result_df: Input dataframe containing all required autoencoder input
                 columns, coordinate columns, and a region identifier column.
             save_dir: Directory where rasterized region outputs will be written.
-            val_ratio: Fraction of regions assigned to the validation split.
+            split: Whether to split regions into train/val subdirectories.
+                Set to False for inference, where all regions go into save_dir.
+            val_ratio: Fraction of regions assigned to the validation split (ignored when split=False).
             image_size: Side length, in pixels, of each rasterized output image.
             file_name_prefix: Prefix used when naming saved rasterized files.
             seed: Random seed used for deterministic train/validation splitting.
@@ -529,6 +532,7 @@ class AutoencoderInferencer:
         rasterize_rgb_regions(
             result_df=result_df,
             save_dir=save_dir,
+            split=split,
             val_ratio=val_ratio,
             seed=seed,
             region_col=region_col,

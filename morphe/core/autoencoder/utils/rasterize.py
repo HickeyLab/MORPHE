@@ -21,6 +21,7 @@ def rasterize_rgb_regions(
     result_df: pd.DataFrame,
     save_dir: str | Path,
     *,
+    split: bool = True,
     val_ratio: float = 0.2,
     seed: int = 42,
     region_col: str = "unique_region",
@@ -33,26 +34,32 @@ def rasterize_rgb_regions(
     filename_prefix: str = "region",
 ) -> None:
     """
-    Rasterize per-region RGB data into train/val image folders.
+    Rasterize per-region RGB data into image files on disk.
 
-    Each unique region is assigned entirely to either the train or validation
-    split, then rasterized into a PNG image.
+    When ``split=True`` (training), regions are split into train/val
+    subdirectories.  When ``split=False`` (inference), all regions are written
+    flat into ``save_dir``.
 
-    Output structure:
+    Output structure (split=True):
         save_dir/
             train/
                 region_0.png
-                region_1.png
                 ...
             val/
                 region_0.png
-                region_1.png
                 ...
+
+    Output structure (split=False):
+        save_dir/
+            region_0.png
+            region_1.png
+            ...
 
     Args:
         result_df: DataFrame containing region IDs, coordinates, and RGB values.
         save_dir: Root output directory.
-        val_ratio: Fraction of regions to place in validation split.
+        split: Whether to split regions into train/val subdirectories.
+        val_ratio: Fraction of regions to place in validation split (ignored when split=False).
         seed: Random seed for reproducible region splitting.
         region_col: Column name identifying regions.
         x_col: Column name for x-coordinates.
@@ -67,23 +74,30 @@ def rasterize_rgb_regions(
         None. Images are written to disk.
     """
     save_dir = Path(save_dir)
-    train_dir = save_dir / "train"
-    val_dir = save_dir / "val"
-    train_dir.mkdir(parents=True, exist_ok=True)
-    val_dir.mkdir(parents=True, exist_ok=True)
 
-    all_regions = list(result_df[region_col].unique())
-    rng = random.Random(seed)
-    rng.shuffle(all_regions)
+    if split:
+        train_dir = save_dir / "train"
+        val_dir = save_dir / "val"
+        train_dir.mkdir(parents=True, exist_ok=True)
+        val_dir.mkdir(parents=True, exist_ok=True)
 
-    n_val = max(1, int(len(all_regions) * val_ratio))
-    val_regions = set(all_regions[:n_val])
-    train_regions = set(all_regions[n_val:])
+        all_regions = list(result_df[region_col].unique())
+        rng = random.Random(seed)
+        rng.shuffle(all_regions)
+
+        n_val = max(1, int(len(all_regions) * val_ratio))
+        val_regions = set(all_regions[:n_val])
+        train_regions = set(all_regions[n_val:])
+    else:
+        save_dir.mkdir(parents=True, exist_ok=True)
+        all_regions = list(result_df[region_col].unique())
+        train_regions = set()
+        val_regions = set()
 
     train_cnt = 0
     val_cnt = 0
 
-    for reg in all_regions:
+    for cnt, reg in enumerate(all_regions):
         subset = result_df[result_df[region_col] == reg]
 
         xs = subset[x_col].values
@@ -102,7 +116,9 @@ def rasterize_rgb_regions(
                 img[y_int, x_int, 1] = Gs[i]
                 img[y_int, x_int, 2] = Rs[i]
 
-        if reg in train_regions:
+        if not split:
+            save_path = save_dir / f"{filename_prefix}_{cnt}.png"
+        elif reg in train_regions:
             save_path = train_dir / f"{filename_prefix}_{train_cnt}.png"
             train_cnt += 1
         else:
