@@ -321,7 +321,7 @@ class GapfillInferencer(BaseLatentInferencer):
             A channel-last NumPy image array suitable for plotting or saving.
         """
         with torch.no_grad():
-            decoded = self.vae.decode(latent / self.scaling_factor).sample  # type: ignore
+            decoded = self.vae.decode((latent / self.scaling_factor).to(dtype=self.dtype)).sample  # type: ignore
 
         preview = (
             decoded[0].permute(1, 2, 0).cpu().numpy() * 0.5 + 0.5
