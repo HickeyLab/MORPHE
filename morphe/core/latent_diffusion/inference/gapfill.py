@@ -433,8 +433,11 @@ class GapfillInferencer(BaseLatentInferencer):
                 construct a valid stitched latent.
         """
         latent_width = current_latent.shape[-1]
-        gap_start, gap_end = self._get_gap_columns(bbox, latent_width)
-        gap_width = gap_end - gap_start
+        y1 = float(bbox[0, 1].item())
+        y2 = float(bbox[0, 3].item())
+        gap_width = int(round((y2 - y1) * latent_width))
+        gap_start = (latent_width - gap_width) // 2
+        gap_end = gap_start + gap_width
 
         if gap_width < 2:
             raise ValueError(
