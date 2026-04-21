@@ -68,7 +68,6 @@ class PixelDiffusionEvaluator:
         self.verbose = verbose
 
         self.vis_dir = Path(self.cfg.vis_dir)
-        self.vis_dir.mkdir(parents=True, exist_ok=True)
 
     def _print(self, msg: str) -> None:
         """

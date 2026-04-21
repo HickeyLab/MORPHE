@@ -164,11 +164,9 @@ class PixelDiffusionTrainerConfig:
         # -------------------------------
         if not (isinstance(self.vis_dir, Path) and str(self.vis_dir)):
             raise ValueError("vis_dir must be a non-empty Path")
-        self.vis_dir.mkdir(parents=True, exist_ok=True)
 
         if not (isinstance(self.comp_eval_save_dir, Path) and str(self.comp_eval_save_dir)):
             raise ValueError("comp_eval_save_dir must be a non-empty Path")
-        self.comp_eval_save_dir.mkdir(parents=True, exist_ok=True)
 
         # -------------------------------
         # Training loop

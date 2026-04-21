@@ -475,6 +475,14 @@ class PixelDiffusionTrainer:
         if verbose is None:
             verbose = self.verbose
 
+        # Resolve output dirs relative to save_dir when paths are not absolute.
+        root = Path(save_dir) if save_dir is not None else Path(".")
+        vis_dir = root / self.cfg.vis_dir if not self.cfg.vis_dir.is_absolute() else self.cfg.vis_dir
+        comp_eval_dir = root / self.cfg.comp_eval_save_dir if not self.cfg.comp_eval_save_dir.is_absolute() else self.cfg.comp_eval_save_dir
+        vis_dir.mkdir(parents=True, exist_ok=True)
+        comp_eval_dir.mkdir(parents=True, exist_ok=True)
+        self.evaluator.vis_dir = vis_dir
+
         # Load VAE onto GPU only if composition eval is requested.
         if enable_composition_eval and self.vae is None:
             self.vae = AutoencoderKL.from_pretrained(
