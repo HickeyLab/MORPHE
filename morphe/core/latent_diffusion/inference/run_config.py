@@ -199,7 +199,7 @@ class ThreeDimImputationRunConfig(LatentBaseRunConfig):
     next_img_path: str | Path
     save_dir: str | Path
     save_name: str = "default"
-    num_inference_steps: int = 200
+    num_steps: int = 200
     w_prev: float = 0.5
     w_next: float = 0.5
     save_latents_name: str = "latents.pt"
@@ -215,10 +215,10 @@ class ThreeDimImputationRunConfig(LatentBaseRunConfig):
         if not self.next_img_path.exists():
             raise FileNotFoundError(f"next_img_path does not exist: {self.next_img_path}")
 
-        if not isinstance(self.num_inference_steps, int):
-            raise TypeError("num_inference_steps must be an int.")
-        if self.num_inference_steps < 1:
-            raise ValueError("num_inference_steps must be >= 1.")
+        if not isinstance(self.num_steps, int):
+            raise TypeError("num_steps must be an int.")
+        if self.num_steps < 1:
+            raise ValueError("num_steps must be >= 1.")
 
         if not isinstance(self.w_prev, (int, float)):
             raise TypeError("w_prev must be a float.")
@@ -246,7 +246,7 @@ class ThreeDimImputationWeightSweepConfig(LatentBaseRunConfig):
     prev_img_path: Path | str
     next_img_path: Path | str
     save_dir: Path | str = Path("./outputs")
-    num_inference_steps: int = 200
+    num_steps: int = 200
     start: float = 0.1
     end: float = 0.9
     step: float = 0.1
@@ -266,10 +266,10 @@ class ThreeDimImputationWeightSweepConfig(LatentBaseRunConfig):
         if not self.next_img_path.is_file():
             raise ValueError(f"next_img_path must be a file: {self.next_img_path}")
 
-        if not isinstance(self.num_inference_steps, int):
-            raise TypeError("num_inference_steps must be an int.")
-        if self.num_inference_steps <= 0:
-            raise ValueError("num_inference_steps must be > 0.")
+        if not isinstance(self.num_steps, int):
+            raise TypeError("num_steps must be an int.")
+        if self.num_steps <= 0:
+            raise ValueError("num_steps must be > 0.")
 
         for name, value in (
             ("start", self.start),

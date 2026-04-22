@@ -387,7 +387,7 @@ class MorpheInferencer:
         next_path: str | Path,
         save_dir: str | Path,
         save_name: str = "default",
-        num_inference_steps: int = 200,
+        num_steps: int = 200,
         w_prev: float = 0.5,
         w_next: float = 0.5,
         save_latents_name: str = "latents.pt",
@@ -403,7 +403,7 @@ class MorpheInferencer:
             prev_path: Path to the previous slice input image.
             next_path: Path to the next slice input image.
             out_dir: Output directory for imputation results.
-            num_inference_steps: Number of diffusion denoising steps.
+            num_steps: Number of diffusion denoising steps.
             w_prev: Weight applied to the previous slice conditioning.
             w_next: Weight applied to the next slice conditioning.
             save_latents_name: Filename used when saving latent outputs.
@@ -429,7 +429,7 @@ class MorpheInferencer:
             next_img_path=next_path,
             save_dir=save_dir,
             save_name=save_name,
-            num_inference_steps=num_inference_steps,
+            num_steps=num_steps,
             w_prev=w_prev,
             w_next=w_next,
             save_latents_name=save_latents_name,

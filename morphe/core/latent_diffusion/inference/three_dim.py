@@ -233,7 +233,7 @@ class ThreeDimImputationInferencer(BaseLatentInferencer):
         condition = self.cond_encoder(w_prev * latent_prev + w_next * latent_next)
 
         self.noise_scheduler.set_timesteps(
-            cfg.num_inference_steps,
+            cfg.num_steps,
             device=self.device,
         )
 
@@ -272,7 +272,7 @@ class ThreeDimImputationInferencer(BaseLatentInferencer):
         next_img_path: str | Path,
         save_dir: str | Path,
         save_name: str = "default",
-        num_inference_steps: int = 200,
+        num_steps: int = 200,
         w_prev: float = 0.5,
         w_next: float = 0.5,
         save_latents_name: str = "latents.pt",
@@ -290,7 +290,7 @@ class ThreeDimImputationInferencer(BaseLatentInferencer):
             next_img_path: Path to the next image.
             save_dir: Root directory where outputs should be written.
             save_name: Subdirectory under ``save_dir`` for this run's outputs.
-            num_inference_steps: Number of denoising steps.
+            num_steps: Number of denoising steps.
             w_prev: Weight applied to the previous-image latent.
             w_next: Weight applied to the next-image latent.
             save_latents_name: Output filename for the saved latent tensor.
@@ -304,7 +304,7 @@ class ThreeDimImputationInferencer(BaseLatentInferencer):
             next_img_path=next_img_path,
             save_dir=save_dir,
             save_name=save_name,
-            num_inference_steps=num_inference_steps,
+            num_steps=num_steps,
             w_prev=w_prev,
             w_next=w_next,
             save_latents_name=save_latents_name,
@@ -318,7 +318,7 @@ class ThreeDimImputationInferencer(BaseLatentInferencer):
         prev_img_path: str | Path,
         next_img_path: str | Path,
         save_dir: str | Path = Path("./outputs"),
-        num_inference_steps: int = 200,
+        num_steps: int = 200,
         start: float = 0.1,
         end: float = 0.9,
         step: float = 0.1,
@@ -334,7 +334,7 @@ class ThreeDimImputationInferencer(BaseLatentInferencer):
             prev_img_path: Path to the previous image.
             next_img_path: Path to the next image.
             save_dir: Directory where outputs should be written.
-            num_inference_steps: Number of denoising steps per run.
+            num_steps: Number of denoising steps per run.
             start: Starting value for ``w_prev``.
             end: Ending value for ``w_prev``.
             step: Increment for ``w_prev``.
@@ -347,7 +347,7 @@ class ThreeDimImputationInferencer(BaseLatentInferencer):
             prev_img_path=prev_img_path,
             next_img_path=next_img_path,
             save_dir=save_dir,
-            num_inference_steps=num_inference_steps,
+            num_steps=num_steps,
             start=start,
             end=end,
             step=step,
@@ -367,7 +367,7 @@ class ThreeDimImputationInferencer(BaseLatentInferencer):
                 prev_img_path=cfg.prev_img_path,
                 next_img_path=cfg.next_img_path,
                 save_dir=cfg.save_dir,
-                num_inference_steps=cfg.num_inference_steps,
+                num_steps=cfg.num_steps,
                 w_prev=w_prev,
                 w_next=w_next,
                 save_latents_name=lat_name,
