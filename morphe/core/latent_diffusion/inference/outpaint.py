@@ -542,7 +542,7 @@ class OutpaintInferencer(BaseLatentInferencer):
             noisy_region = self.noise_scheduler.add_noise(
                 masked_latent * latent_mask,
                 noise * latent_mask,
-                torch.tensor(cfg.steps, device=self.device),  # type: ignore[arg-type]
+                torch.tensor(cfg.num_steps, device=self.device),  # type: ignore[arg-type]
             )
             noisy_latent = (
                 masked_latent * (1 - latent_mask)
