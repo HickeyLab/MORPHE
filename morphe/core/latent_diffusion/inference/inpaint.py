@@ -15,7 +15,7 @@ from .run_config import InpaintRunConfig
 from ..model import CondEncoder, CoordEncoder
 from ..artifact import LatentDiffusionArtifact
 from ....constants import InferenceMode
-from ....utils import resolve_device, resolve_dtype
+from ....utils import resolve_device
 from ....viz.decoded_img import plot_decoded_image, plot_inpainting_triplet
 
 

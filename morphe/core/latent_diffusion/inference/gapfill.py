@@ -14,7 +14,7 @@ from .base import BaseLatentInferencer
 from .run_config import GapfillRunConfig
 from ..model import BBoxEncoder, CondEncoder
 from ....constants import InferenceMode
-from ....utils import resolve_device, resolve_dtype
+from ....utils import resolve_device
 from ....viz.decoded_img import plot_decoded_image
 
 

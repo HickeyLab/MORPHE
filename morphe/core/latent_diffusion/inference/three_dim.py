@@ -15,7 +15,7 @@ from .base import BaseLatentInferencer
 from .run_config import ThreeDimImputationRunConfig, ThreeDimImputationWeightSweepConfig
 from ..model import CondEncoder3D
 from ....constants import InferenceMode
-from ....utils import resolve_device, resolve_dtype
+from ....utils import resolve_device
 
 
 class ThreeDimImputationInferencer(BaseLatentInferencer):
