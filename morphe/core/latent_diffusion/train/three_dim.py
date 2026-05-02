@@ -151,3 +151,17 @@ class ThreeDimImputationTrainTask(LatentTrainTask):
 
         loss = F.mse_loss(pred, latent_mid)
         return loss
+
+    def validate_step(self, trainer: "LatentDiffusionTrainer") -> float:
+        trainer.unet.eval()
+
+        total = 0.0
+        count = 0
+
+        with torch.no_grad():
+            for batch in trainer.val_loader:
+                loss = self.train_step(trainer, batch)
+                total += loss.item()
+                count += 1
+
+        return total / max(count, 1)
