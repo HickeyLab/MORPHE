@@ -6,6 +6,9 @@ Before getting started, here is what you could get from this repo:
 3. Model weights for every single task in our work
 4. Links to all public datasets used in our work
 
+## End-to-End Training-Inferrence Notebook: 
+https://colab.research.google.com/drive/15GtC5jSIhfRG2HwGWS6x74CrEknVo4T8?usp=sharing
+
 ## Overview
 *MORPHE: Bridging Image Generation and Spatial Omics
 for Tissue Synthesis*
