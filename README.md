@@ -2,9 +2,10 @@
 
 Before getting started, here is what you could get from this repo:
 1. Introduction to our work
-2. All code (including embedding, training, inference and evaluation) used in our work. We offers both an end-to-end notebook and detailed split files for different demands.
-3. Model weights for every single task in our work
-4. Links to all public datasets used in our work
+2. All code (including embedding, training, inference and evaluation) used in our work.
+   We offers both an end-to-end notebook and detailed split files for different demands.
+4. Model weights for every single task in our work
+5. Links to all public datasets used in our work
 
 ## End-to-End Training-Inferrence Notebook: 
 https://colab.research.google.com/drive/15GtC5jSIhfRG2HwGWS6x74CrEknVo4T8?usp=sharing
