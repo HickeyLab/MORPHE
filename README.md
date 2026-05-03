@@ -46,8 +46,7 @@ their identities and spatial relationships collectively give rise to large-scale
 applied the method across large-scale single-cell proteomic datasets from the intestine and single-
 cell transcriptomic datasets from the brain, showing computational scalability acrosss millions of
 cells. We used MORPHE on these datasets to outpaint beyond experimentally restricted fields
-of view, inpaint missing or experimentally damaged tissue regions, and perform cross-tissue impu-
-tation, connecting separated tissue regions into a single contiguous sample in both 2D and 3D.
+of view, inpaint missing or experimentally damaged tissue regions, and perform cross-tissue imputation, connecting separated tissue regions into a single contiguous sample in both 2D and 3D.
 MORPHE represents a new class of tissue generation algorithms that will help solve current
 limitations and challenges with single-cell spatial-omics datasets.
 
