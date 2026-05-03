@@ -8,7 +8,7 @@ Before getting started, here is what you could get from this repo:
 5. Links to all public datasets used in our work
 
 ## End-to-End Training-Inferrence Notebook: 
-https://colab.research.google.com/drive/15GtC5jSIhfRG2HwGWS6x74CrEknVo4T8?usp=sharing
+https://colab.research.google.com/drive/15GtC5jSIhfRG2HwGWS6x74CrEknVo4T8?usp=sharing (Please use A100 GPU)
 
 ## Overview
 *MORPHE: Bridging Image Generation and Spatial Omics
