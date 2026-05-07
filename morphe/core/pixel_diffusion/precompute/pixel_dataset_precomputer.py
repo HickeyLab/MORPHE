@@ -28,7 +28,6 @@ class PixelDatasetPrecomputer:
         precompute_task: PixelPrecomputeTask,
         vae_encoder: VAEEncoder | None = None,
         device: str | torch.device | None = None,
-        dtype: torch.dtype | None = None,
     ) -> None:
         """
         Initialize the precomputer.
@@ -48,7 +47,7 @@ class PixelDatasetPrecomputer:
                 available; otherwise CPU.
         """
         self.device = resolve_device(device)
-        self.dtype = resolve_dtype(self.device, dtype)
+        self.dtype = resolve_dtype(self.device, None)
         self._injected_vae_encoder = vae_encoder
         self.precompute_task = precompute_task
 
@@ -58,7 +57,6 @@ class PixelDatasetPrecomputer:
         *,
         precompute_task: PixelPrecomputeTask,
         device: str | torch.device | None = None,
-        dtype: torch.dtype | None = None,
     ) -> PixelDatasetPrecomputer:
         """
         Build a precomputer configured to load its VAE from the task's
@@ -76,7 +74,6 @@ class PixelDatasetPrecomputer:
         return cls(
             precompute_task=precompute_task,
             device=device,
-            dtype=dtype,
         )
 
     def _to_cpu_half(self, x: torch.Tensor) -> torch.Tensor:
