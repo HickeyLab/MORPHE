@@ -21,7 +21,7 @@ from ..pixel_diffusion.inferencer import PixelDiffusionInferencer
 from ..preprocessor.config import PreProcessConfig
 from ..preprocessor.preprocess import PreProcessor
 from ..registry import LATENT_INFERENCER_REGISTRY
-from ...utils import resolve_device, resolve_dtype
+from ...utils import resolve_device
 
 
 class MorpheInferencer:
@@ -38,7 +38,6 @@ class MorpheInferencer:
         *,
         artifact: MorpheArtifact,
         device: torch.device,
-        dtype: torch.dtype,
         preprocessor: PreProcessor,
         gcnn_inferencer: GCNNInferencer,
         autoencoder_inferencer: AutoencoderInferencer,
@@ -83,7 +82,7 @@ class MorpheInferencer:
 
         self.artifact = artifact
         self.device = device
-        self.dtype = dtype
+        self.dtype = torch.float32
         self.preprocessor = preprocessor
         self.gcnn_inferencer = gcnn_inferencer
         self.autoencoder_inferencer = autoencoder_inferencer
@@ -108,7 +107,6 @@ class MorpheInferencer:
             A fully initialized ``MorpheInferencer``.
         """
         resolved_device = resolve_device(device)
-        resolved_dtype = torch.float32
 
         if (
             artifact.preprocessor_config is None
@@ -158,7 +156,6 @@ class MorpheInferencer:
         return cls(
             artifact=artifact,
             device=resolved_device,
-            dtype=resolved_dtype,
             preprocessor=preprocessor,
             gcnn_inferencer=gcnn_inferencer,
             autoencoder_inferencer=autoencoder_inferencer,

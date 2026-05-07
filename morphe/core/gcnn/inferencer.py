@@ -10,7 +10,7 @@ from torch_geometric.loader import DataLoader
 from .artifact import GCNNArtifact
 from .data import RegionGraphDataset
 from .model import GCNClassifier
-from ...utils import resolve_device, resolve_dtype
+from ...utils import resolve_device
 
 class GCNNInferencer:
     """
@@ -27,7 +27,6 @@ class GCNNInferencer:
         artifact: GCNNArtifact,
         model: GCNClassifier,
         device: torch.device,
-        dtype: torch.dtype,
     ) -> None:
         """
         Initialize the inferencer.
@@ -39,7 +38,7 @@ class GCNNInferencer:
         self.artifact = artifact
         self.model = model
         self.device = resolve_device(device)
-        self.dtype = resolve_dtype(self.device, dtype)
+        self.dtype = torch.float32
 
     @classmethod
     def from_artifact(
@@ -65,7 +64,7 @@ class GCNNInferencer:
         device = resolve_device(device)
         model = artifact.build_model(device=device, dtype=torch.float32)
 
-        return cls(artifact=artifact, model=model, device=device, dtype=torch.float32)
+        return cls(artifact=artifact, model=model, device=device)
 
     def predict_proba(
         self,

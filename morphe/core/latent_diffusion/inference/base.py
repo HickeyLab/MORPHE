@@ -7,7 +7,7 @@ from diffusers import AutoencoderKL, DDPMScheduler, UNet2DConditionModel # type:
 
 from .run_config import LatentBaseRunConfig
 from ..model import BBoxEncoder, CondEncoder, CondEncoder3D, CoordEncoder
-from ....utils import resolve_device, resolve_dtype
+from ....utils import resolve_device
 from ..artifact import LatentDiffusionArtifact
 
 def _get_scaling_factor(vae: AutoencoderKL) -> float:
@@ -26,7 +26,6 @@ class BaseLatentInferencer(ABC, Generic[RunConfigT]):
         bbox_encoder: BBoxEncoder | None,
         noise_scheduler: DDPMScheduler,
         device: torch.device | str | None,
-        dtype: torch.dtype | None,
     ) -> None:
         self.artifact = artifact
         self.unet = unet
@@ -36,7 +35,7 @@ class BaseLatentInferencer(ABC, Generic[RunConfigT]):
         self.bbox_encoder = bbox_encoder
         self.noise_scheduler = noise_scheduler
         self.device = resolve_device(device)
-        self.dtype = resolve_dtype(device=self.device, dtype=dtype)
+        self.dtype = torch.float32
 
         self.unet.eval()
         self.vae.eval()

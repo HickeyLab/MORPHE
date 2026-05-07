@@ -10,7 +10,7 @@ import torch
 from .artifact import AutoencoderArtifact
 from .model import Autoencoder
 from .utils.rasterize import rasterize_rgb_regions
-from ...utils import resolve_device, resolve_dtype
+from ...utils import resolve_device
 
 
 class AutoencoderInferencer:
@@ -32,7 +32,6 @@ class AutoencoderInferencer:
         artifact: AutoencoderArtifact,
         *,
         device: torch.device | str | None = None,
-        dtype: torch.dtype | None = None,
     ) -> None:
         """
         Initialize an inferencer from a serialized autoencoder artifact.
@@ -42,11 +41,9 @@ class AutoencoderInferencer:
                 required for inference.
             device: Target device for model execution. If ``None``, a default
                 device is resolved automatically.
-            dtype: Target data type for model execution. If ``None``, a default
-                dtype is resolved based on the target device.
         """
         self.device = resolve_device(device)
-        self.dtype = resolve_dtype(self.device, dtype)
+        self.dtype = torch.float32
 
         self.artifact = artifact
         self.model: Autoencoder = artifact.build_model(
@@ -83,7 +80,6 @@ class AutoencoderInferencer:
         return cls(
             artifact=artifact,
             device=device,
-            dtype=torch.float32,
         )
 
     def _to_embedding_tensor(

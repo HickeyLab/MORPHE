@@ -38,7 +38,6 @@ class GapfillInferencer(BaseLatentInferencer):
         bbox_encoder: BBoxEncoder,
         noise_scheduler: DDPMScheduler,
         device: torch.device,
-        dtype: torch.dtype,
     ) -> None:
         """
         Initialize a gap-filling inferencer from fully constructed runtime components.
@@ -88,7 +87,6 @@ class GapfillInferencer(BaseLatentInferencer):
             bbox_encoder=bbox_encoder,
             noise_scheduler=noise_scheduler,
             device=device,
-            dtype=dtype,
         )
 
         self.image_transform: Callable[[Image.Image], torch.Tensor] = transforms.Compose(
@@ -119,20 +117,19 @@ class GapfillInferencer(BaseLatentInferencer):
             device: Target device for runtime inference components.
         """
         resolved_device = resolve_device(device)
-        resolved_dtype = torch.float32
 
         unet, vae, cond_encoder, _, bbox_encoder, noise_scheduler = (
             artifact.architecture.build_components(
                 device=resolved_device,
-                dtype=resolved_dtype,
+                dtype=torch.float32,
             )
         )
-        
+
         if cond_encoder is None or not isinstance(cond_encoder, CondEncoder):
             raise RuntimeError(
                 "GapfillInferencer requires a cond encoder in the artifact architecture."
             )
-            
+
         if bbox_encoder is None or not isinstance(bbox_encoder, BBoxEncoder):
             raise RuntimeError(
                 "GapfillInferencer requires a bbox encoder in the artifact architecture."
@@ -147,7 +144,6 @@ class GapfillInferencer(BaseLatentInferencer):
             bbox_encoder=bbox_encoder,
             noise_scheduler=noise_scheduler,
             device=resolved_device,
-            dtype=resolved_dtype,
         )
  
 

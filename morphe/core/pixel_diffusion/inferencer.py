@@ -9,7 +9,7 @@ from torchvision import transforms
 
 from .artifact import PixelDiffusionArtifact
 from .models import LatentAdapter, UNet512
-from ...utils import resolve_device, resolve_dtype
+from ...utils import resolve_device
 
 
 class PixelDiffusionInferencer:
@@ -31,7 +31,6 @@ class PixelDiffusionInferencer:
         unet512: UNet512,
         noise_scheduler: DDPMScheduler,
         device: torch.device | str | None = None,
-        dtype: torch.dtype | None = None,
     ) -> None:
         if not isinstance(artifact, PixelDiffusionArtifact):
             raise TypeError(
@@ -58,7 +57,7 @@ class PixelDiffusionInferencer:
         self.unet512 = unet512
         self.noise_scheduler = noise_scheduler
         self.device = resolve_device(device)
-        self.dtype = resolve_dtype(device=self.device, dtype=dtype)
+        self.dtype = torch.float32
         self._to_pil = transforms.ToPILImage()
 
         self.adapter.eval()
@@ -72,7 +71,7 @@ class PixelDiffusionInferencer:
         scheduler_num_inference_steps: int = 150,
         device: torch.device | str | None = None,
     ) -> Self:
-        adapter, unet512, noise_scheduler, resolved_device, resolved_dtype = (
+        adapter, unet512, noise_scheduler, resolved_device, _ = (
             artifact.build_inference_components(
                 device=device,
                 dtype=torch.float32,
@@ -86,7 +85,6 @@ class PixelDiffusionInferencer:
             unet512=unet512,
             noise_scheduler=noise_scheduler,
             device=resolved_device,
-            dtype=resolved_dtype,
         )
 
     @torch.no_grad()

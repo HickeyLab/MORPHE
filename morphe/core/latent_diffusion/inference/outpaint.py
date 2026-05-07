@@ -42,7 +42,6 @@ class OutpaintInferencer(BaseLatentInferencer):
         bbox_encoder: BBoxEncoder,
         noise_scheduler: DDPMScheduler,
         device: torch.device,
-        dtype: torch.dtype,
     ) -> None:
         """
         Initialize an outpainting inferencer from a trained latent artifact.
@@ -85,7 +84,6 @@ class OutpaintInferencer(BaseLatentInferencer):
             bbox_encoder=bbox_encoder,
             noise_scheduler=noise_scheduler,
             device=device,
-            dtype=dtype,
         )
 
         self.transform: Callable[[Image.Image], torch.Tensor] = transforms.Compose(
@@ -120,12 +118,11 @@ class OutpaintInferencer(BaseLatentInferencer):
             An initialized ``OutpaintInferencer`` instance.
         """
         resolved_device = resolve_device(device)
-        resolved_dtype = torch.float32
 
         unet, vae, cond_encoder, _, bbox_encoder, noise_scheduler = (
             artifact.architecture.build_components(
                 device=resolved_device,
-                dtype=resolved_dtype,
+                dtype=torch.float32,
             )
         )
 
@@ -148,7 +145,6 @@ class OutpaintInferencer(BaseLatentInferencer):
             bbox_encoder=bbox_encoder,
             noise_scheduler=noise_scheduler,
             device=resolved_device,
-            dtype=resolved_dtype,
         )
 
     def _load_image_tensor(self, image_path: str | Path) -> torch.Tensor:

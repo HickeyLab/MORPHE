@@ -39,7 +39,6 @@ class ThreeDimImputationInferencer(BaseLatentInferencer):
         bbox_encoder: None,
         noise_scheduler: DDPMScheduler,
         device: torch.device,
-        dtype: torch.dtype,
     ) -> None:
         """
         Initialize a three-dimensional imputation inferencer.
@@ -77,7 +76,6 @@ class ThreeDimImputationInferencer(BaseLatentInferencer):
             bbox_encoder=bbox_encoder,
             noise_scheduler=noise_scheduler,
             device=device,
-            dtype=dtype,
         )
 
         self.transform: Callable[[Image.Image], torch.Tensor] = transforms.Compose(
@@ -111,15 +109,14 @@ class ThreeDimImputationInferencer(BaseLatentInferencer):
             )
 
         resolved_device = resolve_device(device)
-        resolved_dtype = torch.float32
 
         unet, vae, cond_encoder, _, bbox_encoder, noise_scheduler = (
             artifact.architecture.build_components(
                 device=resolved_device,
-                dtype=resolved_dtype,
+                dtype=torch.float32,
             )
         )
-        
+
         if not isinstance(cond_encoder, CondEncoder3D):
             raise RuntimeError(
                 "ThreeDimImputationInferencer requires a CondEncoder3D in the artifact architecture."
@@ -134,7 +131,6 @@ class ThreeDimImputationInferencer(BaseLatentInferencer):
             bbox_encoder=None,
             noise_scheduler=noise_scheduler,
             device=resolved_device,
-            dtype=resolved_dtype,
         )
 
     def _denormalize(self, x: torch.Tensor) -> torch.Tensor:

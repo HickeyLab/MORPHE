@@ -31,7 +31,6 @@ class InpaintInferencer(BaseLatentInferencer):
         bbox_encoder: None,
         noise_scheduler: DDPMScheduler,
         device: torch.device,
-        dtype: torch.dtype,
     ) -> None:
         """
         Initialize an inferencer for latent diffusion inpainting.
@@ -78,9 +77,8 @@ class InpaintInferencer(BaseLatentInferencer):
             bbox_encoder=bbox_encoder,
             noise_scheduler=noise_scheduler,
             device=device,
-            dtype=dtype,
         )
-        
+
     @classmethod
     def from_artifact(
         cls,
@@ -102,20 +100,19 @@ class InpaintInferencer(BaseLatentInferencer):
                 resolved.
         """
         resolved_device = resolve_device(device)
-        resolved_dtype = torch.float32
 
         unet, vae, cond_encoder, coord_encoder, _, noise_scheduler = (
             artifact.architecture.build_components(
                 device=resolved_device,
-                dtype=resolved_dtype,
+                dtype=torch.float32,
             )
         )
-        
+
         if cond_encoder is None or not isinstance(cond_encoder, CondEncoder):
             raise RuntimeError(
                 "GapfillInferencer requires a cond encoder in the artifact architecture."
             )
-            
+
         if coord_encoder is None or not isinstance(coord_encoder, CoordEncoder):
             raise RuntimeError(
                 "InpaintInferencer requires a coord encoder in the artifact architecture."
@@ -130,7 +127,6 @@ class InpaintInferencer(BaseLatentInferencer):
             bbox_encoder=None,
             noise_scheduler=noise_scheduler,
             device=resolved_device,
-            dtype=resolved_dtype,
         )
 
     def _load_image(self, path: str | Path) -> torch.Tensor:
