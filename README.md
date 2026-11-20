@@ -29,7 +29,7 @@ https://www.biorxiv.org/content/10.64898/2026.03.03.709377v1
 ### MORPHE Pipeline
 
 <p align="center">
-  <img src="Assets/Fig 1.png" width="800">
+  <img src="Assets/fig 1.png" width="800">
 </p>
 
 ### Abstract
