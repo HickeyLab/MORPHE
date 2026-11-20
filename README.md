@@ -45,10 +45,15 @@ ity upon decoding. By modeling cells as the fundamental units of generation and 
 their identities and spatial relationships collectively give rise to large-scale tissue structure, MORPHE enables generation and reconstruction of tissue architecture at single-cell resolution. We
 applied the method across large-scale single-cell proteomic datasets from the intestine and single-cell 
 transcriptomic datasets from the brain, showing computational scalability acrosss millions of
-cells. We used MORPHE on these datasets to outpaint beyond experimentally restricted fields
-of view, inpaint missing or experimentally damaged tissue regions, and perform cross-tissue imputation, connecting separated tissue regions into a single contiguous sample in both 2D and 3D.
-MORPHE represents a new class of tissue generation algorithms that will help solve current
-limitations and challenges with single-cell spatial-omics datasets.
+cells.  We used MORPHE on these datasets to outpaint beyond experimentally restricted fields
+of view, inpaint missing or experimentally damaged tissue regions, perform cross-tissue impu-
+tation that connects separated tissue regions into a single contiguous sample in both 2D and
+3D, and perform in silico tissue perturbations. 3D reconstruction of a whole mouse brain from
+sparse sections enabled hippocampal volumetry and 3D cell-type composition analysis. Stochas-
+tic generation and in silico perturbations guided identification of increased plasma-cell clustering
+around tumor epithelium in Barrett’s esophagus, a spatial phenotype not apparent from abun-
+dance alone. MORPHE represents a new class of tissue generation algorithms that will help solve
+current limitations and challenges with single-cell spatial-omics datasets.
 
 ### MORPHE Usecases
 https://github.com/user-attachments/assets/ed0b6b30-8f22-45ec-9870-14a5500f5c42
