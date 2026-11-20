@@ -36,16 +36,15 @@ https://www.biorxiv.org/content/10.64898/2026.03.03.709377v1
 Spatially resolved omics technologies reveal tissue organization at single-cell resolution but remain
 limited by the cost of the assays, incomplete spatial coverage, 2D-only imaging, and experi-
 mental artifacts. These factors motivate the need for in silico methods that can reconstruct or
-extend tissue context beyond what current spatial measurements provide. We present MORPHE (MOdeling of stRuctured sPatial High-dimensional Embeddings), an AI framework that learns to synthesize biologically faithful tissue architecture directly from
-spatial-omics data. MORPHE introduces a graph-informed probabilistic embedding that maps
+extend tissue context beyond what current spatial measurements provide. We present MORPHE (MOdeling of stRuctured sPatial High-dimensional Embeddings), an AI framework that learns to synthesize biologically faithful tissue architecture directly from spatial-omics data. MORPHE introduces a graph-informed probabilistic embedding that maps
 discrete cell identities and their spatial relationships into a continuous RGB-like latent space
 compatible with diffusion modeling. This representational bridge enables spatial cellular maps
 to leverage large pre-trained image-generative models while preserving biological interpretabil-
 ity upon decoding. By modeling cells as the fundamental units of generation and learning how
 their identities and spatial relationships collectively give rise to large-scale tissue structure, MORPHE enables generation and reconstruction of tissue architecture at single-cell resolution. We
-applied the method across large-scale single-cell proteomic datasets from the intestine and single-cell 
-transcriptomic datasets from the brain, showing computational scalability acrosss millions of
-cells.  We used MORPHE on these datasets to outpaint beyond experimentally restricted fields
+applied the method across large-scale single-cell proteomic datasets and transcriptomic datasets, showing computational scalability acrosss millions of cells.  
+
+We used MORPHE on these datasets to outpaint beyond experimentally restricted fields
 of view, inpaint missing or experimentally damaged tissue regions, perform cross-tissue impu-
 tation that connects separated tissue regions into a single contiguous sample in both 2D and
 3D, and perform in silico tissue perturbations. 3D reconstruction of a whole mouse brain from
