@@ -119,7 +119,7 @@ For an installation from a downloaded wheel, replace the MORPHE installation in 
 
 ## Examples included with the package
 
-Both the wheel and source distribution contain the eight notebooks and their saved visual outputs. The README is also displayed on the PyPI project page. The export command in the quick start creates `morphe-examples/notebooks/`, `morphe-examples/docs/`, the README/environment guide and the CUDA constraints file. Existing files with different content are preserved; choose another output directory to export a fresh copy. The source archive and release ZIP already contain the examples folder. The table lists local file paths. PyPI/TestPyPI displays this README but does not host these files as web pages. Open the exported files in JupyterLab or a Markdown viewer. Use a new output directory when upgrading an existing exported copy.
+Both the wheel and source distribution contain the eight notebooks and their saved visual outputs. The README is also displayed on the PyPI project page. The export command in the quick start creates `morphe-examples/notebooks/`, `morphe-examples/docs/`, the README/environment guide and the CUDA constraints file. Existing files with different content are preserved; choose another output directory to export a fresh copy.
 
 ## Inputs and saved models
 
@@ -140,3 +140,4 @@ After the quick-start export, open these local files in JupyterLab or a Markdown
 | CSV and H5AD field mappings | `morphe-examples/docs/INPUT_FORMATS.md` |
 | 3D H5AD workflow | `morphe-examples/docs/H5AD_3D.md` |
 | API and data contracts | `morphe-examples/docs/API.md` |
+
