@@ -10,7 +10,7 @@ Before getting started, here is what you could get from this repo:
 ## MORPHE PyPI Installation
 Install the package and Notebook dependencies: `pip install "morphe-spatial[notebooks]"`.
 
-Export the examples with `python -m morphe examples --output ./morphe-examples`, then open them with `python -m jupyterlab --notebook-dir=./morphe-examples/notebooks`.
+Export the examples with `python -m morphe examples --output ./morphe-examples`, then open them with `python -m jupyterlab --notebook-dir=./morphe-examples/notebooks`. Users could use the provided notebook for each task to reproduce our work.
 
 For detailed instructions about PyPI, please refer to `PyPI_README.md`
 
