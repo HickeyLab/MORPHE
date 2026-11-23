@@ -7,6 +7,13 @@ Before getting started, here is what you could get from this repo:
 4. **Model weights** for every single task in our work
 5. Links to all public **datasets** used in our work
 
+## MORPHE PyPI Installation
+Install the package and Notebook dependencies: `pip install "morphe-spatial[notebooks]"`.
+
+Export the examples with `python -m morphe examples --output ./morphe-examples`, then open them with `python -m jupyterlab --notebook-dir=./morphe-examples/notebooks`.
+
+For detailed instructions about PyPI, please refer to `PyPI_README.md`
+
 ## End-to-End Training-Inferrence Notebook: 
 https://colab.research.google.com/drive/15GtC5jSIhfRG2HwGWS6x74CrEknVo4T8?usp=sharing (Please use A100 GPU)
 
